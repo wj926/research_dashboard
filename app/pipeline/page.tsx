@@ -1,9 +1,10 @@
 import { KanbanBoard } from '@/components/kanban/KanbanBoard';
 import { DeadlineList } from '@/components/misc/DeadlineList';
 import { papers, getUpcomingVenues } from '@/lib/mock';
+import { requestNow } from '@/lib/time';
 
 export default function PipelinePage() {
-  const now = Date.now();
+  const now = requestNow();
   const venues = getUpcomingVenues(new Date(now));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">

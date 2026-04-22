@@ -49,7 +49,7 @@ function renderBody(e: ActivityEvent) {
     case 'project':
       return <span><b>{actor}</b> updated {projLink ?? 'a project'}</span>;
     default: {
-      const _exhaustive: never = e;
+      e satisfies never;
       return null;
     }
   }

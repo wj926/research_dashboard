@@ -1,8 +1,9 @@
 import { RunRow } from '@/components/runs/RunRow';
 import { experiments } from '@/lib/mock';
+import { requestNow } from '@/lib/time';
 
 export default function ExperimentsIndex() {
-  const now = Date.now();
+  const now = requestNow();
   const runs = [...experiments].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   return (
     <div className="space-y-4">

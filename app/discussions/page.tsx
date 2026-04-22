@@ -5,9 +5,10 @@ import {
   DISCUSSION_CATEGORY_ICONS,
   DISCUSSION_CATEGORY_ORDER,
 } from '@/lib/labels';
+import { requestNow } from '@/lib/time';
 
 export default function DiscussionsIndex() {
-  const now = Date.now();
+  const now = requestNow();
   const sorted = [...discussions].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">

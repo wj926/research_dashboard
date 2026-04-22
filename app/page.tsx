@@ -4,9 +4,10 @@ import { ProjectCard } from '@/components/project/ProjectCard';
 import { ActivityFeedItem } from '@/components/feed/ActivityFeedItem';
 import { DeadlineList } from '@/components/misc/DeadlineList';
 import { getPinnedProjects, getUpcomingVenues, getRecentEvents } from '@/lib/mock';
+import { requestNow } from '@/lib/time';
 
 export default function Dashboard() {
-  const now = Date.now();
+  const now = requestNow();
   const pinned = getPinnedProjects();
   const venues = getUpcomingVenues(new Date(now)).slice(0, 5);
   const events = getRecentEvents(12);

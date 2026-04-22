@@ -28,6 +28,7 @@ export function TabBar({ slug }: { slug: string }) {
             <li key={t.key}>
               <Link
                 href={href}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
                   'inline-flex items-center gap-2 px-3 h-10 text-sm border-b-2',
                   active ? 'border-attention-emphasis font-semibold' : 'border-transparent text-fg-muted hover:text-fg-default'
