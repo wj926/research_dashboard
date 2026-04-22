@@ -25,7 +25,7 @@ export default async function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {pinned.map(p => <ProjectCard key={p.slug} project={p} />)}
             <Link
-              href="/projects"
+              href="/projects/new"
               className="border border-dashed border-border-default rounded-md p-4 flex flex-col items-center justify-center text-fg-muted hover:border-accent-fg hover:text-accent-fg"
             >
               <PlusIcon size={20} />
