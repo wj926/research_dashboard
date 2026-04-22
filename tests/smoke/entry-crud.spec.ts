@@ -41,7 +41,7 @@ test('edit entry preserves existing and updates title', async ({ page }) => {
   await card.getByRole('button', { name: /더보기/ }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 
-  await page.getByRole('link', { name: /Edit/ }).click();
+  await page.getByRole('dialog').getByRole('link', { name: /Edit/ }).click();
   await expect(page.getByRole('heading', { name: 'Edit journal entry' })).toBeVisible();
 
   const newTitle = `Edit test updated ${ts}`;
