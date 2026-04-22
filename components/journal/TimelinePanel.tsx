@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
+import { XIcon } from '@primer/octicons-react';
 import type { Milestone } from '@/lib/types';
-import { createMilestoneAction } from '@/lib/actions/milestones';
+import { createMilestoneAction, deleteMilestoneAction } from '@/lib/actions/milestones';
 
 export function TimelinePanel({
   milestones,
@@ -47,7 +48,7 @@ export function TimelinePanel({
       {milestones.length === 0 ? (
         <p className="text-xs text-fg-muted">No milestones yet.</p>
       ) : (
-        <InlineTimeline milestones={milestones} />
+        <InlineTimeline milestones={milestones} projectSlug={projectSlug} />
       )}
 
       {showAdd && (
@@ -134,7 +135,21 @@ function monthLabel(iso: string): string {
   return iso.slice(0, 7);
 }
 
-function InlineTimeline({ milestones }: { milestones: Milestone[] }) {
+function InlineTimeline({
+  milestones,
+  projectSlug,
+}: {
+  milestones: Milestone[];
+  projectSlug: string;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  const onDelete = (id: number) => {
+    startTransition(async () => {
+      await deleteMilestoneAction(projectSlug, id);
+    });
+  };
+
   return (
     <div className="relative">
       <div className="absolute left-0 right-0 top-[7px] h-0.5 bg-border-muted" />
@@ -143,7 +158,16 @@ function InlineTimeline({ milestones }: { milestones: Milestone[] }) {
         style={{ gridTemplateColumns: `repeat(${milestones.length}, minmax(0, 1fr))` }}
       >
         {milestones.map(m => (
-          <div key={m.id}>
+          <div key={m.id} className="group relative">
+            <button
+              type="button"
+              onClick={() => onDelete(m.id)}
+              disabled={pending}
+              aria-label="Delete milestone"
+              className="absolute top-0 right-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity text-fg-muted hover:text-danger-fg disabled:opacity-30"
+            >
+              <XIcon size={12} />
+            </button>
             <div
               className={
                 'w-4 h-4 rounded-full mx-auto relative ' +
