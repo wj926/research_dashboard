@@ -14,10 +14,11 @@ export function CreateMenu() {
         <DropdownMenuItem asChild>
           <Link href="/projects/new">New project</Link>
         </DropdownMenuItem>
-        {/* TODO(Phase 12b): wire these to their respective create pages */}
-        <DropdownMenuItem>New paper</DropdownMenuItem>
-        <DropdownMenuItem>New experiment</DropdownMenuItem>
-        <DropdownMenuItem>New discussion</DropdownMenuItem>
+        <DropdownMenuItem disabled>New paper (select a project)</DropdownMenuItem>
+        <DropdownMenuItem disabled>New experiment</DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/discussions/new">New discussion</Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
