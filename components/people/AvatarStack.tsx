@@ -12,7 +12,7 @@ export function AvatarStack({ logins, size = 20, max = 4, className }: { logins:
         </span>
       ))}
       {overflow > 0 && (
-        <span className="ml-1 text-xs text-fg-muted">+{overflow}</span>
+        <span className="ml-1 text-xs text-fg-muted" aria-label={`and ${overflow} more`}>+{overflow}</span>
       )}
     </span>
   );
