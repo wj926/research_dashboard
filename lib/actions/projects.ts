@@ -15,17 +15,30 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+
 export async function createProject(formData: FormData): Promise<void> {
   const name = String(formData.get('name') ?? '').trim();
   const description = String(formData.get('description') ?? '').trim();
   const tagsRaw = String(formData.get('tags') ?? '');
   const pinned = formData.get('pinned') === 'on';
+  const slugRaw = String(formData.get('slug') ?? '').trim().toLowerCase();
 
   if (!name) throw new Error('Name is required');
   if (!description) throw new Error('Description is required');
 
-  const slug = slugify(name);
-  if (!slug) throw new Error('Name must contain letters or digits');
+  // Prefer explicit slug if provided; otherwise derive from name.
+  const slug = slugRaw || slugify(name);
+  if (!slug) {
+    throw new Error(
+      'Please fill the Slug field. The Name contains no ASCII letters or digits, so a URL slug could not be derived automatically. Example: "my-new-project".'
+    );
+  }
+  if (!SLUG_PATTERN.test(slug)) {
+    throw new Error(
+      `Slug "${slug}" is invalid. Use lowercase letters, digits, and hyphens only (e.g., "reasoning-bench-v3").`
+    );
+  }
 
   const existing = await prisma.project.findUnique({ where: { slug } });
   if (existing) throw new Error(`A project with slug "${slug}" already exists`);

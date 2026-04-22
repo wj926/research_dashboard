@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Research Meeting Materials — Mockup v2 (카드뉴스)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  body { background: #f8fafc; font-family: 'Inter', system-ui, sans-serif; }
+
+  /* ─── md 뷰어 ─── */
+  .prose-sm h1 { font-size: 1.25rem; font-weight: 700; margin-top: 1.2rem; }
+  .prose-sm h2 { font-size: 1.05rem; font-weight: 600; margin-top: 1rem; color:#1e293b; }
+  .prose-sm h3 { font-size: 0.95rem; font-weight: 600; margin-top: .8rem; }
+  .prose-sm p  { margin: .5rem 0; line-height: 1.65; color:#334155; }
+  .prose-sm ul { margin: .3rem 0 .3rem 1.1rem; list-style: disc; color:#334155; }
+  .prose-sm ol { margin: .3rem 0 .3rem 1.1rem; list-style: decimal; color:#334155; }
+  .prose-sm code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:.85em; color:#0f172a; }
+  .prose-sm pre  { background:#0f172a; color:#e2e8f0; padding:.75rem 1rem; border-radius:8px; overflow:auto; font-size:.82rem; }
+  .prose-sm table { border-collapse: collapse; margin: .6rem 0; font-size:.85rem; }
+  .prose-sm th, .prose-sm td { border:1px solid #e2e8f0; padding:.35rem .6rem; }
+  .prose-sm th { background:#f1f5f9; }
+  .prose-sm blockquote { border-left:3px solid #cbd5e1; padding:.2rem .8rem; color:#475569; margin:.6rem 0; }
+
+  /* ─── 타임라인 ─── */
+  .timeline { position: relative; }
+  .timeline::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 32px;
+    height: 2px; background: linear-gradient(90deg,#6366f1,#8b5cf6,#ec4899);
+    border-radius: 2px;
+  }
+  .tl-dot { position: relative; z-index: 1; }
+
+  /* ─── 카드 래퍼 ─── */
+  .card-wrap { background:#fff; border-radius: 16px; overflow: hidden; border:1px solid #e2e8f0; display:flex; flex-direction:column; transition: transform .12s ease, box-shadow .12s ease; }
+  .card-wrap:hover { transform: translateY(-3px); box-shadow: 0 16px 36px -16px rgba(15,23,42,.28); }
+  .type-bar { height: 3px; width: 100%; }
+  .type-meeting .type-bar { background:#f59e0b; }
+  .type-report  .type-bar { background:#6366f1; }
+  .type-exp     .type-bar { background:#10b981; }
+  .type-review  .type-bar { background:#ec4899; }
+
+  /* ─── 캐러셀 ─── */
+  .carousel { position: relative; overflow: hidden; aspect-ratio: 4 / 5; }
+  .slides-wrap { display: flex; transition: transform .35s cubic-bezier(.2,.7,.2,1); height: 100%; }
+  .slide { flex: 0 0 100%; height: 100%; display: flex; flex-direction: column; padding: 2rem 1.5rem 1.4rem; color: #fff; position: relative; }
+  .slide .kind-label { font-size: 10.5px; letter-spacing: .14em; font-weight: 700; opacity: .92; display:flex; align-items:center; gap:.35rem; }
+  .slide h4 { font-size: 1.15rem; font-weight: 700; line-height: 1.35; margin-top: .45rem; }
+  .slide .s-body { font-size: .88rem; line-height: 1.6; margin-top: .6rem; opacity: .95; }
+  .slide .s-chip { display:inline-block; font-size:11px; padding:2px 9px; border-radius:999px; background:rgba(255,255,255,.2); margin-top:.5rem; }
+  .slide pre  { background: rgba(0,0,0,.32); color:#f1f5f9; font-size:.76rem; padding:.55rem .75rem; border-radius:8px; margin-top:.55rem; overflow:auto; }
+  .slide .metric { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .slide .metric > div { background: rgba(255,255,255,.16); border-radius: 10px; padding: .5rem .65rem; }
+  .slide .metric b { display:block; font-size: 1rem; font-weight: 700; }
+  .slide .metric span { font-size: 10px; opacity: .85; }
+  .slide .big-num { font-size: 2.2rem; font-weight: 800; line-height: 1; margin-top:.6rem; }
+  .slide ul.bul { margin-top: .5rem; font-size: .85rem; line-height: 1.55; list-style: none; padding: 0; }
+  .slide ul.bul li { padding-left: 1rem; position: relative; }
+  .slide ul.bul li::before { content: '›'; position: absolute; left: 0; opacity: .7; }
+
+  /* kind별 배경 */
+  .s-summary   { background: linear-gradient(135deg,#0f172a,#1e293b); }
+  .s-summary.meeting { background: linear-gradient(140deg,#78350f,#fbbf24); }
+  .s-summary.report  { background: linear-gradient(140deg,#312e81,#818cf8); }
+  .s-summary.exp     { background: linear-gradient(140deg,#064e3b,#34d399); }
+  .s-summary.review  { background: linear-gradient(140deg,#831843,#f472b6); }
+  .s-discovery { background: linear-gradient(135deg,#1e3a8a,#3b82f6); }
+  .s-failure   { background: linear-gradient(135deg,#7f1d1d,#f43f5e); }
+  .s-implement { background: linear-gradient(135deg,#065f46,#14b8a6); }
+  .s-question  { background: linear-gradient(135deg,#78350f,#f59e0b); }
+  .s-next      { background: linear-gradient(135deg,#1e293b,#6366f1); }
+
+  /* progress bar */
+  .progress { position:absolute; top:10px; left:14px; right:14px; display:flex; gap:4px; z-index:3; }
+  .progress span { flex:1; height:3px; border-radius:3px; background:rgba(255,255,255,.3); overflow:hidden; }
+  .progress span.active { background: rgba(255,255,255,.95); }
+  .progress span.done { background: rgba(255,255,255,.85); }
+
+  /* 좌우 클릭 영역 */
+  .nav-zone { position:absolute; top:0; bottom:0; width:35%; z-index:2; cursor:pointer; }
+  .nav-zone.left { left:0; }
+  .nav-zone.right { right:0; }
+  .nav-arrow { position:absolute; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; background:rgba(0,0,0,.38); color:#fff; display:flex; align-items:center; justify-content:center; opacity:0; transition: opacity .15s; z-index:3; pointer-events:none; font-size: 14px; }
+  .carousel:hover .nav-arrow { opacity: 1; }
+  .nav-arrow.left  { left: 10px; }
+  .nav-arrow.right { right: 10px; }
+
+  /* 모달 */
+  .backdrop { background: rgba(15,23,42,.55); }
+  .nice-scroll::-webkit-scrollbar { width:8px; height:8px; }
+  .nice-scroll::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius: 4px; }
+  .nice-scroll::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+  .bubble-user { background:#eef2ff; color:#1e1b4b; }
+  .bubble-ai   { background:#f8fafc; color:#0f172a; border:1px solid #e2e8f0; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<!-- HEADER -->
+<header class="bg-white border-b">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-pink-500"></div>
+      <div>
+        <div class="text-sm font-semibold">DAMI Lab · Share Page</div>
+        <div class="text-xs text-slate-500">Research Meeting Materials — v2 카드뉴스</div>
+      </div>
+    </div>
+    <nav class="flex items-center gap-2 text-sm">
+      <a href="meetings.html" class="px-3 py-1.5 rounded-md hover:bg-slate-100 text-slate-500">← v1</a>
+      <span class="px-3 py-1.5 rounded-md bg-amber-50 text-amber-800 font-medium">Meeting Materials</span>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-6 space-y-8">
+
+  <!-- 프로젝트 헤더 -->
+  <section>
+    <div class="flex items-center gap-2 text-xs text-slate-500 mb-1">
+      <span>All</span> / <span>Meeting Materials</span> / <span class="text-slate-900 font-medium">LLDM Unlearning</span>
+    </div>
+    <div class="flex items-start justify-between gap-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">LLDM Unlearning Project</h1>
+        <p class="text-sm text-slate-500 mt-1">Diffusion LLM에서 특정 지식을 제거하는 연구 — 2025 Fall 부터 진행 중</p>
+      </div>
+      <div class="flex gap-4 text-center">
+        <div><div class="text-2xl font-bold text-indigo-600">3</div><div class="text-xs text-slate-500">papers</div></div>
+        <div><div class="text-2xl font-bold text-emerald-600">12</div><div class="text-xs text-slate-500">experiments</div></div>
+        <div><div class="text-2xl font-bold text-amber-600">8</div><div class="text-xs text-slate-500">meetings</div></div>
+        <div><div class="text-2xl font-bold text-pink-600">ICML'26</div><div class="text-xs text-slate-500">target</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 연구 흐름 타임라인 -->
+  <section class="bg-white rounded-2xl border p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-slate-900">연구 흐름</h2>
+      <button class="text-xs text-indigo-600 hover:underline">+ 마일스톤 추가</button>
+    </div>
+    <div class="timeline grid grid-cols-6 gap-2">
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-indigo-500 mx-auto"></div>
+        <div class="mt-3 text-center"><div class="text-xs text-slate-500">2025-11</div><div class="text-sm font-medium">문제 정의</div><div class="text-xs text-slate-400 mt-0.5">diffusion LM unlearning</div></div>
+      </div>
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-indigo-500 mx-auto"></div>
+        <div class="mt-3 text-center"><div class="text-xs text-slate-500">2025-12</div><div class="text-sm font-medium">서베이 & 리뷰</div><div class="text-xs text-slate-400 mt-0.5">klass / hierarchy / papl</div></div>
+      </div>
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-violet-500 mx-auto"></div>
+        <div class="mt-3 text-center"><div class="text-xs text-slate-500">2026-01</div><div class="text-sm font-medium">베이스라인 재현</div><div class="text-xs text-slate-400 mt-0.5">KLASS Table 2</div></div>
+      </div>
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-pink-500 mx-auto ring-4 ring-pink-100"></div>
+        <div class="mt-3 text-center"><div class="text-xs font-semibold text-pink-600">NOW · 2026-04</div><div class="text-sm font-medium">제안 방법 설계</div><div class="text-xs text-slate-400 mt-0.5">planner + KL filter 결합</div></div>
+      </div>
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-slate-300 mx-auto"></div>
+        <div class="mt-3 text-center"><div class="text-xs text-slate-500">2026-06</div><div class="text-sm font-medium">본실험</div><div class="text-xs text-slate-400 mt-0.5">MMLU retention eval</div></div>
+      </div>
+      <div class="tl-dot"><div class="w-4 h-4 rounded-full bg-slate-300 mx-auto"></div>
+        <div class="mt-3 text-center"><div class="text-xs text-slate-500">2026-09</div><div class="text-sm font-medium">논문 작성</div><div class="text-xs text-slate-400 mt-0.5">ICML 2026</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TODO -->
+  <section class="grid md:grid-cols-3 gap-4">
+    <div class="bg-white rounded-2xl border p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-slate-900 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 단기 (1주)</h3>
+        <span class="text-xs text-slate-400">3 / 5</span>
+      </div>
+      <ul class="space-y-2 text-sm">
+        <li class="flex items-start gap-2"><input type="checkbox" checked class="mt-1 accent-rose-500"><span class="line-through text-slate-400">KLASS Table 2 재현 차이 원인 분석</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" checked class="mt-1 accent-rose-500"><span class="line-through text-slate-400">공용 평가 스크립트 <code>eval_common.py</code></span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" checked class="mt-1 accent-rose-500"><span class="line-through text-slate-400">Hierarchy Fig2 하이퍼파라미터 스윕</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-rose-500"><span>planner-guided unlearning 초안 PR</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-rose-500"><span>다음 주 세미나 슬라이드 (박)</span></li>
+      </ul>
+    </div>
+    <div class="bg-white rounded-2xl border p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-slate-900 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span> 중기 (1개월)</h3>
+        <span class="text-xs text-slate-400">1 / 4</span>
+      </div>
+      <ul class="space-y-2 text-sm">
+        <li class="flex items-start gap-2"><input type="checkbox" checked class="mt-1 accent-amber-500"><span class="line-through text-slate-400">베이스라인 3종 통합 벤치</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-amber-500"><span>제안 방법 ablation 설계 (forget set × KL temp)</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-amber-500"><span>MMLU / TruthfulQA retention 파이프라인</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-amber-500"><span>개인정보 시나리오 케이스 스터디 2건</span></li>
+      </ul>
+    </div>
+    <div class="bg-white rounded-2xl border p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-slate-900 flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-indigo-500"></span> 장기 (학기~학회)</h3>
+        <span class="text-xs text-slate-400">0 / 3</span>
+      </div>
+      <ul class="space-y-2 text-sm">
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-indigo-500"><span>ICML 2026 submission (<code>2026-02-04</code>)</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-indigo-500"><span>코드 & 모델 공개 (MIT)</span></li>
+        <li class="flex items-start gap-2"><input type="checkbox" class="mt-1 accent-indigo-500"><span>후속 주제: multi-task unlearning</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 필터 -->
+  <section class="flex items-center justify-between">
+    <div>
+      <h2 class="text-lg font-semibold text-slate-900">날짜별 기록</h2>
+      <p class="text-xs text-slate-500 mt-0.5">카드를 좌우로 넘겨 그날의 발견/실패/구현/고민을 한눈에 보세요.</p>
+    </div>
+    <div class="flex gap-1.5 text-xs">
+      <button class="px-2.5 py-1 rounded-full bg-slate-900 text-white">All</button>
+      <button class="px-2.5 py-1 rounded-full border bg-white hover:bg-slate-50"><span class="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1"></span>회의록</button>
+      <button class="px-2.5 py-1 rounded-full border bg-white hover:bg-slate-50"><span class="inline-block w-2 h-2 rounded-full bg-indigo-500 mr-1"></span>개별 보고</button>
+      <button class="px-2.5 py-1 rounded-full border bg-white hover:bg-slate-50"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>실험 결과</button>
+      <button class="px-2.5 py-1 rounded-full border bg-white hover:bg-slate-50"><span class="inline-block w-2 h-2 rounded-full bg-pink-500 mr-1"></span>논문 리뷰</button>
+    </div>
+  </section>
+
+  <!-- 카드뉴스 그리드 -->
+  <section id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></section>
+
+</main>
+
+<!-- MODAL (더보기) -->
+<div id="modal" class="fixed inset-0 z-50 hidden">
+  <div class="backdrop absolute inset-0" onclick="closeModal()"></div>
+  <div class="relative max-w-[1400px] h-[92vh] mx-auto mt-[4vh] bg-slate-50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-5 py-3 bg-white border-b">
+      <div class="flex items-center gap-3">
+        <span id="modal-badge" class="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">회의록</span>
+        <h2 id="modal-title" class="font-semibold text-slate-900"></h2>
+        <span id="modal-date" class="text-xs text-slate-500"></span>
+      </div>
+      <button onclick="closeModal()" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">✕</button>
+    </div>
+    <div class="flex-1 grid grid-cols-12 gap-0 min-h-0">
+      <div class="col-span-6 bg-white border-r flex flex-col min-h-0">
+        <div class="px-5 py-2 border-b text-xs text-slate-500 flex items-center justify-between">
+          <span>📄 보고 문서 (<span id="modal-filepath" class="font-mono"></span>)</span>
+          <div class="flex gap-2">
+            <button class="hover:underline">edit</button>
+            <button class="hover:underline">raw</button>
+          </div>
+        </div>
+        <div id="modal-md" class="prose-sm overflow-y-auto nice-scroll px-6 py-5 flex-1"></div>
+        <div class="border-t bg-slate-50 px-5 py-4 max-h-64 overflow-y-auto nice-scroll">
+          <div class="text-xs font-semibold text-slate-600 mb-2">댓글 <span class="text-slate-400">· 2</span></div>
+          <div class="space-y-2 text-sm mb-3">
+            <div class="flex gap-2"><div class="w-7 h-7 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-semibold text-indigo-700">김</div>
+              <div class="flex-1"><div class="text-xs text-slate-500"><b class="text-slate-700">김연구</b> · 2일 전</div><div>Fig 3 수치 궁금합니다. 오른쪽 노트북 링크 열어봐도 될까요?</div></div>
+            </div>
+            <div class="flex gap-2"><div class="w-7 h-7 rounded-full bg-pink-200 flex items-center justify-center text-xs font-semibold text-pink-700">이</div>
+              <div class="flex-1"><div class="text-xs text-slate-500"><b class="text-slate-700">이박사</b> · 1일 전</div><div>네 확인하고 업데이트 하겠습니다. planner 경로는 다음 미팅까지 정리할게요.</div></div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <input class="flex-1 text-sm px-3 py-1.5 rounded-md border" placeholder="댓글을 남겨주세요..." />
+            <button class="px-3 py-1.5 text-sm rounded-md bg-slate-900 text-white">등록</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-span-3 bg-white border-r flex flex-col min-h-0">
+        <div class="px-5 py-2 border-b text-xs text-slate-500">📊 분석 결과 & 아티팩트</div>
+        <div id="modal-artifacts" class="overflow-y-auto nice-scroll px-4 py-4 flex-1 space-y-3"></div>
+      </div>
+      <div class="col-span-3 bg-white flex flex-col min-h-0">
+        <div class="px-5 py-2 border-b text-xs text-slate-500 flex items-center gap-2">
+          <span>🤖 프로젝트 어시스턴트</span>
+          <span class="ml-auto px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px]">connected</span>
+        </div>
+        <div id="chat-log" class="flex-1 overflow-y-auto nice-scroll px-4 py-4 space-y-2 text-sm">
+          <div class="bubble-ai p-2.5 rounded-lg">이 보고서와 LLDM Unlearning 프로젝트에 대해 자유롭게 물어보세요.</div>
+        </div>
+        <div class="border-t px-3 py-2">
+          <div class="flex gap-2">
+            <input id="chat-input" class="flex-1 text-sm px-3 py-1.5 rounded-md border" placeholder="프로젝트 관련 질문..." />
+            <button onclick="sendChat()" class="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white">→</button>
+          </div>
+          <div class="flex gap-1 mt-1.5 flex-wrap">
+            <button class="text-[10px] px-2 py-0.5 rounded-full border text-slate-600 hover:bg-slate-50" onclick="quickChat('이번 주 TODO?')">이번 주 TODO?</button>
+            <button class="text-[10px] px-2 py-0.5 rounded-full border text-slate-600 hover:bg-slate-50" onclick="quickChat('baseline 3개 비교')">baseline 비교</button>
+            <button class="text-[10px] px-2 py-0.5 rounded-full border text-slate-600 hover:bg-slate-50" onclick="quickChat('ICML D-?')">ICML D-?</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── 타입 & kind 메타 ────────────────────────────────────────────────
+const typeMeta = {
+  meeting: { label:'회의록', cls:'type-meeting', badge:'bg-amber-100 text-amber-800',   icon:'🗣️' },
+  report:  { label:'개별 보고', cls:'type-report',  badge:'bg-indigo-100 text-indigo-800', icon:'📝' },
+  exp:     { label:'실험 결과', cls:'type-exp',     badge:'bg-emerald-100 text-emerald-800', icon:'📈' },
+  review:  { label:'논문 리뷰', cls:'type-review',  badge:'bg-pink-100 text-pink-800',     icon:'📚' }
+};
+const kindMeta = {
+  discovery: { label:'DISCOVERY', icon:'💡', cls:'s-discovery' },
+  failure:   { label:'FAILURE',   icon:'⚠️', cls:'s-failure' },
+  implement: { label:'IMPLEMENT', icon:'🛠️', cls:'s-implement' },
+  question:  { label:'QUESTION',  icon:'❓', cls:'s-question' },
+  next:      { label:'NEXT',      icon:'➡️', cls:'s-next' },
+  metric:    { label:'METRIC',    icon:'📊', cls:'s-discovery' }
+};
+
+// ─── 엔트리 데이터 ────────────────────────────────────────────────────
+const entries = [
+  {
+    date:'2026-04-21', type:'meeting', author:'전체',
+    title:'주간 미팅 — planner 방향 확정',
+    summary:'planner-guided 경로를 주 기법으로 채택. KLASS KL filter는 후처리로 결합.',
+    tags:['meeting','planner','decision'],
+    body:`# 2026-04-21 주간 미팅\n\n## 참석\n지도교수, 김, 이, 박\n\n## 논의\n- KLASS 단독은 forget set이 작을 때 retention 저하 큼\n- Hierarchy는 학습 비용 1.8배 — 큰 모델엔 부담\n- **결론**: planner-guided 경로를 본 방법으로 채택, KLASS의 KL filter를 후처리로 결합\n\n## 액션\n- [x] 공용 평가 스크립트 머지\n- [ ] planner 초안 PR (이, 2026-04-28까지)\n- [ ] 제안 방법 ablation 설계 (박, 다음 미팅까지)`,
+    artifacts:[
+      { type:'notebook', title:'Table 2 재현 노트북', href:'#' },
+      { type:'figure', title:'retention vs forget size', href:'#' },
+      { type:'sheet', title:'결정 사항 요약 시트', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'방법론 방향이 드디어 정해졌다', body:'3주간 3개 후보를 두고 저울질 끝에 planner-guided 경로를 본 논문의 메인 기법으로 채택.', chip:'decision' },
+      { kind:'failure',   title:'KLASS 단독의 한계', body:'forget set이 작을수록 retention이 급격히 떨어지는 문제를 재확인. 단독 사용은 부적합.', chip:'baseline gap' },
+      { kind:'implement', title:'planner + KL filter 하이브리드', body:'planner로 경로를 찾고, 마지막에 KLASS의 KL filter를 후처리로 통과시키는 2-stage 구조.' },
+      { kind:'question',  title:'Hierarchy는 왜 뺐나', body:'학습 비용 1.8배는 큰 모델로 확장할 때 치명적. 다만 ablation에는 포함해서 비교해야 함.' },
+      { kind:'next',      title:'이번 주 액션', body:'planner 초안 PR (이, 4/28), 제안 방법 ablation 설계 (박). 공용 평가 스크립트는 머지 완료.', chip:'D-7' }
+    ]
+  },
+  {
+    date:'2026-04-18', type:'exp', author:'박',
+    title:'Hierarchy Fig2 하이퍼파라미터 스윕',
+    summary:'depth=3 / lr=1e-4에서 원 논문 수치 재현. 논문과의 차이는 하이퍼파라미터가 원인.',
+    tags:['experiment','hierarchy','sweep'],
+    body:`# Hierarchy Fig2 재현 실험 (2026-04-18)\n\n| depth | lr | retention | forget |\n|------:|---:|----------:|-------:|\n| 2 | 1e-4 | 0.71 | 0.38 |\n| 3 | 1e-4 | **0.82** | **0.15** |\n| 3 | 3e-4 | 0.79 | 0.12 |\n| 4 | 1e-4 | 0.80 | 0.11 |\n\n**결론**: 원 논문과의 차이는 코드 버그가 아니라 하이퍼파라미터 차이.`,
+    artifacts:[
+      { type:'notebook', title:'sweep_hierarchy.ipynb', href:'#' },
+      { type:'figure', title:'heatmap (depth × lr)', href:'#' },
+      { type:'figure', title:'retention curve', href:'#' },
+      { type:'csv', title:'결과 CSV', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'논문 수치를 재현했다', body:'depth=3, lr=1e-4 조합에서 원 논문 Table 2와 거의 일치. 그동안의 재현 실패는 코드가 아니라 하이퍼파라미터였다.', chip:'reproduced ✓' },
+      { kind:'failure', title:'3주를 태운 착각', body:'처음엔 mask 구현에 버그가 있다고 의심해서 코드를 세 번 다시 썼음. 실제로는 lr 3e-4가 과하게 잊어서 생긴 결과.', chip:'lesson' },
+      { kind:'metric', title:'스윕 결과', body:'8개 조합 중 depth=3 / lr=1e-4가 retention/forget 균형 최고.',
+        metrics:[{b:'0.82', s:'retention ↑'},{b:'0.15', s:'forget ↓'}] },
+      { kind:'implement', title:'재현 노트북 공개', body:'sweep_hierarchy.ipynb에 전체 그리드 + heatmap 포함. 다른 backbone으로 재실행 가능한 스캐폴드.', chip:'notebook' },
+      { kind:'question', title:'다른 backbone에서도 같을까', body:'base → large로 가면 optimal (depth, lr)가 바뀔 가능성. 다음 주 동일 스윕 반복 예정.' },
+      { kind:'next', title:'다음', body:'base → large backbone 스윕, 결과를 공용 평가 스크립트로 정리. 주간 미팅에 올리기.' }
+    ]
+  },
+  {
+    date:'2026-04-14', type:'meeting', author:'전체',
+    title:'주간 미팅 — 논문 3편 리뷰 공유',
+    summary:'klass / hierarchy / papl 비교표 작성. 본 과제 포지션 논의.',
+    tags:['meeting','survey'],
+    body:`# 2026-04-14 주간 미팅\n\n## 3편 비교\n| 논문 | 핵심 | 한계 |\n|------|------|------|\n| KLASS (NeurIPS'25) | KL 거리로 필터 | 대규모 비용 |\n| Hierarchy (ICLR'26) | 계층별 masking | 학습 시간 ↑ |\n| PAPL (preprint) | planner로 경로 결정 | 수렴 불안정 |\n\n## 결정\n본 과제 = **PAPL 구조 + KLASS 후처리**`,
+    artifacts:[
+      { type:'figure', title:'3편 비교 다이어그램', href:'#' },
+      { type:'doc', title:'서베이 노트 (Notion)', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'세 방법은 서로 보완한다', body:'KLASS는 filter, Hierarchy는 masking, PAPL은 planner — 같은 문제를 다른 축에서 접근.', chip:'survey' },
+      { kind:'implement', title:'비교표 완성', body:'핵심 아이디어 / 한계 / 우리가 차용할 부분까지 한 페이지에 정리. Notion에 공유.' },
+      { kind:'question', title:'우리의 포지션은?', body:'단순 조합이 기여라고 할 수 있을까? → planner action space를 KLASS가 제약한다는 프레이밍이 필요.', chip:'framing' },
+      { kind:'next', title:'다음 미팅까지', body:'각자 할당된 재현 실험 → 4/21에 결과 공유.' }
+    ]
+  },
+  {
+    date:'2026-04-10', type:'report', author:'이',
+    title:'공용 평가 스크립트 eval_common.py 설계',
+    summary:'retention / forget / MMLU 3축 동시 측정. 출력 포맷 통일.',
+    tags:['infra','evaluation'],
+    body:`# eval_common.py 설계안\n\n\`\`\`bash\npython eval_common.py --model path/to/ckpt --forget_set A --retain_set mmlu --out results.json\n\`\`\`\n\n## 출력\n\`\`\`json\n{"retention": 0.82, "forget_rate": 0.15, "mmlu_5shot": 0.61}\n\`\`\`\n\n## 남은 이슈\ndiffusion LM의 log-likelihood 계산이 느림 → 배치 처리 최적화 필요.`,
+    artifacts:[
+      { type:'notebook', title:'설계 노트북', href:'#' },
+      { type:'doc', title:'PR draft #42', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'평가가 제각각이다', body:'논문마다 forget/retain 정의가 달라서 비교가 안 되는 게 본질적 문제였다.' },
+      { kind:'implement', title:'3축 동시 측정 스크립트', body:'retention, forget_rate, MMLU 5-shot을 한번에 계산해서 JSON으로 출력. 모든 베이스라인이 같은 인터페이스.', chip:'infra' },
+      { kind:'failure', title:'log-likelihood가 느리다', body:'diffusion LM은 autoregressive와 달라서 per-token likelihood 계산이 10배 느림. 배치 최적화 필요.', chip:'bottleneck' },
+      { kind:'question', title:'MMLU만으로 충분?', body:'utility 축을 MMLU 하나로 두면 over-fitting 위험. TruthfulQA도 넣자는 의견.' },
+      { kind:'next', title:'머지 후 할 일', body:'배치 최적화 → 팀원 전원이 같은 스크립트로 결과 재생성 → 4/21 미팅에서 합치기.' }
+    ]
+  },
+  {
+    date:'2026-04-07', type:'review', author:'김',
+    title:'PAPL planner 동작 원리 정리',
+    summary:'state-action-reward 구조. 수렴 불안정 원인 분석.',
+    tags:['review','papl','planner'],
+    body:`# PAPL planner 리뷰\n\n## 구조\n1. state = (모델 가중치 snapshot, forget set 통계)\n2. action = 다음 업데이트 스텝 선택\n3. reward = retention − α · forget_rate\n\n## 문제\n- action space가 커서 초기 에피소드에서 수렴 느림\n- 해결안: action 템플릿 제한 (우리 방법에서 시도)`,
+    artifacts:[
+      { type:'figure', title:'PAPL 구조도', href:'#' },
+      { type:'doc', title:'원문 PDF 주석본', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'planner는 MDP로 모델링돼있다', body:'state, action, reward가 명시적. 이전에 헷갈렸던 "planner가 뭘 한다는거지?"의 답.', chip:'insight' },
+      { kind:'failure', title:'수렴이 불안정한 이유', body:'action space가 너무 커서 초기 random policy가 의미있는 신호를 못 얻음. 논문 저자도 appendix에서 인정.' },
+      { kind:'implement', title:'우리의 아이디어', body:'action을 KLASS가 허용하는 방향으로만 제한 → search space 축소 → 수렴 가능성 ↑', chip:'our angle' },
+      { kind:'question', title:'action 제한이 expressiveness를 죽이진 않나', body:'최적 action이 제한 영역 밖에 있으면 답이 안 나옴. 어떻게 실험으로 확인할지?' }
+    ]
+  },
+  {
+    date:'2026-04-02', type:'exp', author:'김',
+    title:'KLASS KL filter temperature 스윕',
+    summary:'T=1.0 부근 최적. 작으면 과제거, 크면 불충분.',
+    tags:['experiment','klass'],
+    body:`# KLASS KL filter temp 스윕\n\n| T | retention | forget |\n|---|-----------|--------|\n| 0.5 | 0.65 | 0.08 |\n| 1.0 | **0.80** | **0.16** |\n| 2.0 | 0.83 | 0.31 |\n\n**T=1.0 ± 0.3 범위** 운용 권장.`,
+    artifacts:[
+      { type:'figure', title:'trade-off curve', href:'#' },
+      { type:'notebook', title:'klass_temp_sweep.ipynb', href:'#' }
+    ],
+    slides:[
+      { kind:'metric', title:'temperature 3개 비교', body:'T ∈ {0.5, 1.0, 2.0}. T=1.0에서 retention/forget 균형 최고.',
+        metrics:[{b:'T=1.0', s:'sweet spot'},{b:'0.80 / 0.16', s:'ret / forget'}] },
+      { kind:'failure', title:'T=0.5는 과제거', body:'forget rate는 0.08로 낮지만 retention도 0.65로 무너짐. 너무 공격적으로 지움.' },
+      { kind:'failure', title:'T=2.0은 불충분', body:'retention은 유지되지만 forget이 0.31 — 지우려던 게 남아있음.' },
+      { kind:'discovery', title:'실용 운용 범위', body:'T=1.0 ± 0.3이 안전 영역. 방법론 섹션에 recommendation으로 기재 예정.', chip:'recipe' },
+      { kind:'next', title:'다음 실험', body:'T를 학습 과정에서 동적으로 조절하는 schedule 테스트.' }
+    ]
+  },
+  {
+    date:'2026-03-28', type:'meeting', author:'전체',
+    title:'월간 미팅 — 범위 재조정',
+    summary:'개인정보 케이스 스터디 2건을 평가 시나리오로 추가.',
+    tags:['meeting','scope'],
+    body:`# 2026-03-28 월간 미팅\n\n## 결정\n- 평가 시나리오에 개인정보 케이스 스터디 2건 추가\n  - (1) 이름 + 주소 패턴\n  - (2) 의료 기록 일부\n- 법적/윤리 이슈는 연구윤리위 자문 후 공개 데이터셋만 사용\n\n## 리스크\n개인정보 데이터셋 확보 — 2주 내 후보 리스트업`,
+    artifacts:[
+      { type:'doc', title:'연구윤리 체크리스트', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'평가가 "학술적"이기만 하면 약하다', body:'실제 unlearning 수요는 개인정보 제거. 이걸 다루지 않으면 리뷰어 Q1이 올 것.', chip:'scope' },
+      { kind:'implement', title:'케이스 스터디 2건 추가', body:'(1) 이름+주소 패턴, (2) 의료 기록 일부. 공개 데이터셋만 사용하기로.' },
+      { kind:'question', title:'윤리 이슈 어떻게 넘나', body:'실제 개인정보를 쓸 수 없으니 합성 or 공개된 PII-like 데이터로 제한. 연구윤리위 자문 필요.' },
+      { kind:'next', title:'2주 내 액션', body:'데이터셋 후보 리스트업 + 윤리위 체크리스트 제출.' }
+    ]
+  },
+  {
+    date:'2026-03-24', type:'report', author:'박',
+    title:'세미나 발표: evaluation protocols',
+    summary:'unlearning 평가 통일 프로토콜 제안.',
+    tags:['seminar','evaluation'],
+    body:`# 세미나: Unlearning Evaluation Protocols\n\n- 논문마다 forget/retain/utility 정의가 제각각\n- 제안: **3축 동시 공개** (retention, forget rate, downstream utility)\n- 데이터셋: MMLU, TruthfulQA, 자체 forget set\n\n## 반응\n지도교수: 좋은 출발. 논문의 contribution 한 꼭지로 쓸 수 있음.`,
+    artifacts:[
+      { type:'slide', title:'세미나 슬라이드 (Marp)', href:'#' }
+    ],
+    slides:[
+      { kind:'discovery', title:'발표 준비하며 알게 된 것', body:'평가 통일 자체가 본 논문의 부차적 기여(contribution)로 충분히 쓸 수 있다는 피드백.', chip:'contribution' },
+      { kind:'implement', title:'3축 프로토콜 제안', body:'retention · forget rate · downstream utility를 모든 논문이 공개하자는 플랫폼 제안.' },
+      { kind:'next', title:'논문 초고 섹션', body:'Section 4에 evaluation protocol을 독립 섹션으로 넣기로. 세미나 피드백 반영.' }
+    ]
+  }
+];
+
+// ─── 렌더 ─────────────────────────────────────────────────────────────
+const artifactIcon = (t) => ({ notebook:'📓', figure:'🖼️', sheet:'📊', csv:'📄', doc:'📝', slide:'🎞️' }[t] || '🔗');
+
+function slideHtml(s, type) {
+  const km = kindMeta[s.kind] || kindMeta.discovery;
+  let extra = '';
+  if (s.metrics) {
+    extra = `<div class="metric">${s.metrics.map(m => `<div><b>${m.b}</b><span>${m.s}</span></div>`).join('')}</div>`;
+  }
+  if (s.code) extra += `<pre>${s.code}</pre>`;
+  return `
+    <div class="slide ${km.cls}">
+      <div class="kind-label"><span>${km.icon}</span> ${km.label}</div>
+      <h4>${s.title}</h4>
+      <div class="s-body">${s.body}</div>
+      ${s.chip ? `<span class="s-chip">#${s.chip}</span>` : ''}
+      ${extra}
+    </div>
+  `;
+}
+
+function summarySlide(e) {
+  const m = typeMeta[e.type];
+  return `
+    <div class="slide s-summary ${e.type}">
+      <div class="kind-label">${m.icon} ${m.label.toUpperCase()}</div>
+      <div class="text-xs opacity-80 mt-1">${e.date} · ${e.author}</div>
+      <h4 class="text-xl mt-3">${e.title}</h4>
+      <div class="s-body">${e.summary}</div>
+      <div class="mt-auto">
+        <div class="flex gap-1 flex-wrap">
+          ${e.tags.map(t => `<span class="s-chip">#${t}</span>`).join('')}
+        </div>
+        <div class="mt-3 text-xs opacity-80">→ 오른쪽으로 넘겨보세요 (${e.slides.length}장)</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCards() {
+  const el = document.getElementById('cards');
+  el.innerHTML = entries.map((e, i) => {
+    const m = typeMeta[e.type];
+    const allSlides = [summarySlide(e), ...e.slides.map(s => slideHtml(s, e.type))];
+    const total = allSlides.length;
+    return `
+      <div class="card-wrap ${m.cls}" data-idx="${i}">
+        <div class="type-bar"></div>
+        <div class="carousel" id="car-${i}">
+          <div class="progress">
+            ${allSlides.map((_, k) => `<span class="${k === 0 ? 'active' : ''}" data-s="${k}"></span>`).join('')}
+          </div>
+          <div class="slides-wrap" id="sw-${i}">
+            ${allSlides.join('')}
+          </div>
+          <div class="nav-zone left"  onclick="slidePrev(${i})"></div>
+          <div class="nav-zone right" onclick="slideNext(${i})"></div>
+          <div class="nav-arrow left">‹</div>
+          <div class="nav-arrow right">›</div>
+        </div>
+        <div class="px-4 py-3 flex items-center justify-between bg-white">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 text-[11px] font-medium rounded-full ${m.badge}">${m.icon} ${m.label}</span>
+            <span class="text-xs text-slate-400">${e.date}</span>
+          </div>
+          <button onclick="openModal(${i})" class="text-xs text-indigo-600 hover:underline font-medium">더보기 →</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  // 초기 인덱스 저장
+  entries.forEach((_, i) => { carouselIdx[i] = 0; });
+}
+
+// ─── 캐러셀 컨트롤 ────────────────────────────────────────────────────
+const carouselIdx = {};
+function slideGoto(cardIdx, slideIdx) {
+  const total = entries[cardIdx].slides.length + 1;
+  slideIdx = Math.max(0, Math.min(total - 1, slideIdx));
+  carouselIdx[cardIdx] = slideIdx;
+  const sw = document.getElementById('sw-' + cardIdx);
+  if (sw) sw.style.transform = `translateX(-${slideIdx * 100}%)`;
+  // progress
+  const prog = document.querySelectorAll(`#car-${cardIdx} .progress span`);
+  prog.forEach((p, k) => {
+    p.classList.remove('active', 'done');
+    if (k < slideIdx) p.classList.add('done');
+    else if (k === slideIdx) p.classList.add('active');
+  });
+}
+function slideNext(i) { slideGoto(i, (carouselIdx[i] || 0) + 1); }
+function slidePrev(i) { slideGoto(i, (carouselIdx[i] || 0) - 1); }
+
+// ─── 모달 ────────────────────────────────────────────────────────────
+function openModal(i) {
+  const e = entries[i];
+  const m = typeMeta[e.type];
+  document.getElementById('modal-badge').innerHTML = `${m.icon} ${m.label}`;
+  document.getElementById('modal-badge').className = `px-2 py-0.5 text-xs font-medium rounded-full ${m.badge}`;
+  document.getElementById('modal-title').textContent = e.title;
+  document.getElementById('modal-date').textContent = `${e.date} · ${e.author}`;
+  document.getElementById('modal-filepath').textContent = `meetings/${e.date}-${e.type}.md`;
+  document.getElementById('modal-md').innerHTML = marked.parse(e.body);
+  document.getElementById('modal-artifacts').innerHTML = e.artifacts.map(a => `
+    <a href="${a.href}" class="block border rounded-lg p-3 hover:bg-slate-50 transition">
+      <div class="flex items-start gap-2">
+        <div class="text-xl">${artifactIcon(a.type)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-slate-900 truncate">${a.title}</div>
+          <div class="text-xs text-slate-400">${a.type}</div>
+        </div>
+        <div class="text-slate-400">↗</div>
+      </div>
+    </a>
+  `).join('') + `<button class="w-full border-2 border-dashed rounded-lg p-3 text-sm text-slate-400 hover:bg-slate-50">+ 아티팩트 첨부</button>`;
+  document.getElementById('modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+// ─── 챗봇 (목업) ─────────────────────────────────────────────────────
+function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  addBubble(text, 'user'); inp.value = '';
+  setTimeout(() => addBubble(mockAnswer(text), 'ai'), 400);
+}
+function quickChat(q) { document.getElementById('chat-input').value = q; sendChat(); }
+function addBubble(text, who) {
+  const log = document.getElementById('chat-log');
+  const div = document.createElement('div');
+  div.className = (who === 'user' ? 'bubble-user ml-6' : 'bubble-ai mr-6') + ' p-2.5 rounded-lg';
+  div.textContent = text;
+  log.appendChild(div); log.scrollTop = log.scrollHeight;
+}
+function mockAnswer(q) {
+  if (/todo|할 일|남/i.test(q))   return '이번 주 남은 것: planner 초안 PR (이), 세미나 슬라이드 (박).';
+  if (/baseline|비교/i.test(q))    return 'KLASS = KL filter, Hierarchy = 계층 masking, PAPL = planner. 본 과제는 PAPL 구조 + KLASS 후처리.';
+  if (/icml|d-|데드라인/i.test(q)) return 'ICML 2026 full paper: 2026-02-04. 오늘(2026-04-21) 기준 이미 제출 구간.';
+  return '(mock) 실제로는 프로젝트 문서를 RAG로 연결해 답합니다.';
+}
+document.getElementById('chat-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+// ─── 키보드: 모달 닫혀있고 hover된 카드에서 방향키 ────────────────────
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('modal').classList.contains('hidden')) return;
+  const hovered = document.querySelector('.card-wrap:hover');
+  if (!hovered) return;
+  const i = parseInt(hovered.dataset.idx, 10);
+  if (e.key === 'ArrowRight') { slideNext(i); e.preventDefault(); }
+  if (e.key === 'ArrowLeft')  { slidePrev(i); e.preventDefault(); }
+});
+
+renderCards();
+</script>
+</body>
+</html>

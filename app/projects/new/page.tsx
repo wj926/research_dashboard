@@ -17,10 +17,24 @@ export default function NewProjectPage() {
             name="name"
             type="text"
             required
-            placeholder="e.g., reasoning-bench-v3"
+            placeholder="예: 추론 벤치마크 v3 or reasoning-bench-v3"
             className="w-full border border-border-default rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-emphasis"
           />
-          <p className="text-xs text-fg-muted mt-1">Slug will be derived from the name (lowercase, hyphenated).</p>
+          <p className="text-xs text-fg-muted mt-1">Display name (any language).</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1" htmlFor="slug">
+            Slug <span className="text-fg-muted font-normal">(URL identifier — optional if name is ASCII)</span>
+          </label>
+          <input
+            id="slug"
+            name="slug"
+            type="text"
+            pattern="[a-z0-9][a-z0-9-]*"
+            placeholder="reasoning-bench-v3"
+            className="w-full border border-border-default rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent-emphasis"
+          />
+          <p className="text-xs text-fg-muted mt-1">Lowercase letters, digits, hyphens only. Appears in URL as <code>/projects/&lt;slug&gt;</code>. Required if Name contains non-ASCII characters.</p>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1" htmlFor="description">Description</label>
