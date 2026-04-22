@@ -1,12 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { XIcon, LinkExternalIcon } from '@primer/octicons-react';
+import Link from 'next/link';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import {
+  XIcon,
+  LinkExternalIcon,
+  PencilIcon,
+  TrashIcon,
+} from '@primer/octicons-react';
 import type { ResearchEntry, ArtifactType } from '@/lib/types';
 import { ENTRY_TYPE_LABELS, ENTRY_TYPE_TONE } from '@/lib/labels';
 import { LabelChip } from '@/components/badges/LabelChip';
 import { MarkdownBody } from '@/components/md/MarkdownBody';
 import { cn } from '@/lib/cn';
+import { deleteEntryAction } from '@/lib/actions/entries';
 
 const ARTIFACT_ICON: Record<ArtifactType, string> = {
   notebook: '📓',
@@ -29,20 +36,31 @@ function mockAnswer(q: string): string {
 
 export function EntryModal({
   entry,
+  projectSlug,
   onClose,
 }: {
   entry: ResearchEntry | null;
+  projectSlug: string;
   onClose: () => void;
 }) {
   if (!entry) return null;
-  return <EntryModalBody key={entry.id} entry={entry} onClose={onClose} />;
+  return (
+    <EntryModalBody
+      key={entry.id}
+      entry={entry}
+      projectSlug={projectSlug}
+      onClose={onClose}
+    />
+  );
 }
 
 function EntryModalBody({
   entry,
+  projectSlug,
   onClose,
 }: {
   entry: ResearchEntry;
+  projectSlug: string;
   onClose: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
@@ -50,6 +68,30 @@ function EntryModalBody({
   ]);
   const [input, setInput] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
+
+  const [confirming, setConfirming] = useState(false);
+  const [deletePending, startDeleteTransition] = useTransition();
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    };
+  }, []);
+
+  const handleDelete = () => {
+    if (!confirming) {
+      setConfirming(true);
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirming(false), 3000);
+      return;
+    }
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    startDeleteTransition(async () => {
+      await deleteEntryAction(projectSlug, entry.id);
+      onClose();
+    });
+  };
 
   // Close on Escape
   useEffect(() => {
@@ -83,7 +125,7 @@ function EntryModalBody({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div className="relative max-w-[1400px] h-[92vh] mx-auto mt-[4vh] bg-canvas-subtle rounded-md shadow-md overflow-hidden flex flex-col border border-border-default">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-border-default">
+        <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-border-default gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <LabelChip tone={tone}>{ENTRY_TYPE_LABELS[entry.type]}</LabelChip>
             <h2 className="font-semibold text-fg-default truncate">{entry.title}</h2>
@@ -91,14 +133,36 @@ function EntryModalBody({
               {entry.date.slice(0, 10)} · {entry.authorLogin}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="close"
-            className="w-8 h-8 rounded-md hover:bg-canvas-inset flex items-center justify-center text-fg-muted"
-          >
-            <XIcon size={16} />
-          </button>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Link
+              href={`/projects/${projectSlug}/entries/${entry.id}/edit`}
+              className="inline-flex items-center gap-1 px-2 h-7 rounded-md border border-border-default text-xs text-fg-default hover:bg-canvas-subtle"
+            >
+              <PencilIcon size={12} /> Edit
+            </Link>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deletePending}
+              className={cn(
+                'inline-flex items-center gap-1 px-2 h-7 rounded-md border text-xs transition-colors disabled:opacity-50',
+                confirming
+                  ? 'border-danger-emphasis bg-danger-emphasis text-white hover:bg-danger-fg'
+                  : 'border-border-default text-danger-fg hover:bg-danger-subtle',
+              )}
+            >
+              <TrashIcon size={12} />
+              {confirming ? 'Click again to confirm' : 'Delete'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="close"
+              className="w-8 h-8 rounded-md hover:bg-canvas-inset flex items-center justify-center text-fg-muted"
+            >
+              <XIcon size={16} />
+            </button>
+          </div>
         </div>
         {/* 3-panel grid */}
         <div className="flex-1 grid grid-cols-12 gap-0 min-h-0">
