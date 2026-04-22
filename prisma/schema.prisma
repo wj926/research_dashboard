@@ -28,6 +28,7 @@ model Member {
   authoredDiscussions Discussion[]
   authoredReplies     Reply[]
   authoredEvents      ActivityEvent[]
+  journalEntries      ResearchEntry[]
 }
 
 // ========== Projects ==========
@@ -43,12 +44,15 @@ model Project {
   externalId   String?   @unique
   lastSyncedAt DateTime?
 
-  repos    ProjectRepo[]
-  members  ProjectMember[]
-  papers   Paper[]
-  releases Release[]
-  runs     ExperimentRun[]
-  events   ActivityEvent[]
+  repos      ProjectRepo[]
+  members    ProjectMember[]
+  papers     Paper[]
+  releases   Release[]
+  runs       ExperimentRun[]
+  events     ActivityEvent[]
+  entries    ResearchEntry[]
+  milestones Milestone[]
+  todos      TodoItem[]
 }
 
 model ProjectMember {
@@ -184,4 +188,73 @@ model Venue {
   name     String
   deadline DateTime
   kind     String
+}
+
+// ========== Research Journal ==========
+model ResearchEntry {
+  id            String   @id
+  projectSlug   String
+  date          DateTime
+  type          String   // 'meeting' | 'report' | 'experiment' | 'review'
+  authorLogin   String
+  title         String
+  summary       String
+  tags          String   // JSON array
+  bodyMarkdown  String
+  source        String    @default("internal")
+  externalId    String?   @unique
+  lastSyncedAt  DateTime?
+
+  project   Project         @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  author    Member          @relation(fields: [authorLogin], references: [login], onDelete: Restrict)
+  artifacts EntryArtifact[]
+  slides    EntrySlide[]
+}
+
+model EntryArtifact {
+  id       Int    @id @default(autoincrement())
+  entryId  String
+  type     String // 'notebook' | 'figure' | 'sheet' | 'csv' | 'doc' | 'slide'
+  title    String
+  href     String
+  position Int
+
+  entry ResearchEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+}
+
+model EntrySlide {
+  id          Int     @id @default(autoincrement())
+  entryId     String
+  position    Int     // 0 = summary (implicit), 1+ = narrative
+  kind        String  // 'discovery' | 'failure' | 'implement' | 'question' | 'next' | 'metric'
+  title       String
+  body        String
+  chip        String?
+  metricsJson String?
+  code        String?
+
+  entry ResearchEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+}
+
+model Milestone {
+  id          Int      @id @default(autoincrement())
+  projectSlug String
+  date        DateTime
+  label       String
+  note        String?
+  status      String   // 'past' | 'now' | 'future'
+  position    Int
+
+  project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+}
+
+model TodoItem {
+  id          Int      @id @default(autoincrement())
+  projectSlug String
+  bucket      String   // 'short' | 'mid' | 'long'
+  text        String
+  done        Boolean  @default(false)
+  position    Int
+
+  project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
 }
