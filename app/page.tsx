@@ -6,8 +6,9 @@ import { DeadlineList } from '@/components/misc/DeadlineList';
 import { getPinnedProjects, getUpcomingVenues, getRecentEvents } from '@/lib/mock';
 
 export default function Dashboard() {
+  const now = Date.now();
   const pinned = getPinnedProjects();
-  const venues = getUpcomingVenues().slice(0, 5);
+  const venues = getUpcomingVenues(new Date(now)).slice(0, 5);
   const events = getRecentEvents(12);
 
   return (
@@ -26,14 +27,14 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
-        <DeadlineList venues={venues} />
+        <DeadlineList venues={venues} now={now} />
       </section>
 
       <section>
         <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-3">Recent activity</h2>
-        <div className="bg-white border border-border-default rounded-md px-4">
-          {events.map(e => <ActivityFeedItem key={e.id} event={e} />)}
-        </div>
+        <ul className="bg-white border border-border-default rounded-md px-4 list-none">
+          {events.map(e => <ActivityFeedItem key={e.id} event={e} now={now} />)}
+        </ul>
       </section>
     </div>
   );
