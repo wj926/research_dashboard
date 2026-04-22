@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { Avatar } from '@/components/people/Avatar';
 import { LabelChip } from '@/components/badges/LabelChip';
+import { ProjectCard } from '@/components/project/ProjectCard';
 import { getMemberByLogin, getProjectBySlug } from '@/lib/mock';
 
 export default async function MemberProfile({ params }: { params: Promise<{ login: string }> }) {
@@ -24,12 +24,7 @@ export default async function MemberProfile({ params }: { params: Promise<{ logi
           {m.pinnedProjectSlugs.map(s => {
             const p = getProjectBySlug(s);
             if (!p) return null;
-            return (
-              <Link key={s} href={`/projects/${s}`} className="bg-white border border-border-default rounded-md p-4 hover:border-accent-fg">
-                <div className="font-semibold text-accent-fg">{p.name}</div>
-                <p className="text-xs text-fg-muted mt-1 line-clamp-2">{p.description}</p>
-              </Link>
-            );
+            return <ProjectCard key={s} project={p} />;
           })}
         </div>
       </section>
