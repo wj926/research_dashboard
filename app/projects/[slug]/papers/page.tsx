@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/misc/EmptyState';
 import { getPapersByProject } from '@/lib/queries';
 import { loadProject } from '@/lib/mock/loaders';
 import { PAPER_STAGE_LABELS, PAPER_STAGE_ORDER, PAPER_STAGE_TONE } from '@/lib/labels';
+import { PaperRowActions } from '@/components/project/PaperRowActions';
 
 export default async function PapersTab({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await loadProject(params);
@@ -64,6 +65,7 @@ export default async function PapersTab({ params }: { params: Promise<{ slug: st
                       </a>
                     );
                   })()}
+                  <PaperRowActions projectSlug={slug} paperId={p.id} />
                 </li>
               ))}
             </ul>
