@@ -35,6 +35,8 @@
 /coverage
 /node_modules
 /out/
+/playwright-report/
+/test-results/
 dist/
 next-env.d.ts
 node_modules/
