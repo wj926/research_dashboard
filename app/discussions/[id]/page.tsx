@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { MarkdownBody } from '@/components/md/MarkdownBody';
 import { Avatar } from '@/components/people/Avatar';
 import { EmptyState } from '@/components/misc/EmptyState';
+import { ReplyForm } from '@/components/discussions/ReplyForm';
 import { getDiscussionById, getAllMembers } from '@/lib/queries';
 
 export default async function DiscussionDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +47,7 @@ export default async function DiscussionDetail({ params }: { params: Promise<{ i
             );
           })
         )}
+        <ReplyForm discussionId={d.id} />
       </section>
     </article>
   );
