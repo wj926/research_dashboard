@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { StatusBadge } from '@/components/badges/StatusBadge';
 import { Avatar } from '@/components/people/Avatar';
 import { getProjectBySlug, getMemberByLogin, getRunById } from '@/lib/queries';
+import { RunActions } from '@/components/runs/RunActions';
 
 export default async function RunDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +22,7 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         <div className="ml-auto text-xs text-fg-muted flex items-center gap-3">
           <span className="flex items-center gap-1"><Avatar login={run.triggeredByLogin} size={14}/> {actor?.displayName}</span>
           <span>{new Date(run.startedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          <RunActions runId={run.id} />
         </div>
       </div>
       {proj && (
