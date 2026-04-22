@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import type { Paper, PaperStage } from '@/lib/types';
 import { PAPER_STAGE_LABELS, PAPER_STAGE_ORDER } from '@/lib/labels';
+import { updatePaperStage } from '@/lib/actions/papers';
 import { KanbanColumn } from './KanbanColumn';
 
 const COLUMNS: { stage: PaperStage; label: string }[] = PAPER_STAGE_ORDER.map(stage => ({
@@ -25,7 +26,18 @@ export function KanbanBoard({ initial, projectNames }: { initial: Paper[]; proje
     if (!PAPER_STAGE_ORDER.includes(targetId as PaperStage)) return;
     const stage = targetId as PaperStage;
     if (typeof paperId !== 'string') return;
+
+    // Snapshot current state before the optimistic update so we can roll back on error.
+    const prevItems = items;
+    const moved = prevItems.find(p => p.id === paperId);
+    if (!moved || moved.stage === stage) return;
+
     setItems(prev => prev.map(p => p.id === paperId ? { ...p, stage } : p));
+    // Fire-and-forget: persist in the background, roll back local state if the server rejects.
+    updatePaperStage(paperId, stage).catch(err => {
+      console.error('Failed to persist Kanban move', err);
+      setItems(prevItems);
+    });
   }
 
   return (
