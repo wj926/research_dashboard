@@ -2,12 +2,15 @@ import { notFound } from 'next/navigation';
 import { Avatar } from '@/components/people/Avatar';
 import { LabelChip } from '@/components/badges/LabelChip';
 import { ProjectCard } from '@/components/project/ProjectCard';
-import { getMemberByLogin, getProjectBySlug } from '@/lib/mock';
+import { getMemberByLogin, getAllProjects } from '@/lib/queries';
 
 export default async function MemberProfile({ params }: { params: Promise<{ login: string }> }) {
   const { login } = await params;
-  const m = getMemberByLogin(login);
+  const m = await getMemberByLogin(login);
   if (!m) notFound();
+
+  const projects = await getAllProjects();
+  const projectMap = new Map(projects.map(p => [p.slug, p]));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -22,7 +25,7 @@ export default async function MemberProfile({ params }: { params: Promise<{ logi
         <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-2">Pinned projects</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {m.pinnedProjectSlugs.map(s => {
-            const p = getProjectBySlug(s);
+            const p = projectMap.get(s);
             if (!p) return null;
             return <ProjectCard key={s} project={p} />;
           })}

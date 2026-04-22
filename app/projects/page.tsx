@@ -1,7 +1,8 @@
 import { ProjectCard } from '@/components/project/ProjectCard';
-import { projects } from '@/lib/mock';
+import { getAllProjects } from '@/lib/queries';
 
-export default function ProjectsIndex() {
+export default async function ProjectsIndex() {
+  const projects = await getAllProjects();
   return (
     <div>
       <h1 className="text-lg font-semibold mb-4">Projects</h1>

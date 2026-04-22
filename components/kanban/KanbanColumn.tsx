@@ -4,7 +4,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { Paper, PaperStage } from '@/lib/types';
 import { KanbanCard } from './KanbanCard';
 
-export function KanbanColumn({ stage, label, papers, now }: { stage: PaperStage; label: string; papers: Paper[]; now: number }) {
+export function KanbanColumn({ stage, label, papers, projectNames, now }: { stage: PaperStage; label: string; papers: Paper[]; projectNames: Record<string, string>; now: number }) {
   const { isOver, setNodeRef } = useDroppable({ id: stage });
   return (
     <div
@@ -15,7 +15,7 @@ export function KanbanColumn({ stage, label, papers, now }: { stage: PaperStage;
         <span>{label}</span>
         <span className="bg-white border border-border-default rounded-full px-1.5 py-0.5 text-[10px]">{papers.length}</span>
       </div>
-      {papers.map(p => <KanbanCard key={p.id} paper={p} now={now} />)}
+      {papers.map(p => <KanbanCard key={p.id} paper={p} projectName={projectNames[p.projectSlug]} now={now} />)}
     </div>
   );
 }

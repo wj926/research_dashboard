@@ -1,13 +1,13 @@
 import { LabelChip } from '@/components/badges/LabelChip';
 import { Avatar } from '@/components/people/Avatar';
 import { EmptyState } from '@/components/misc/EmptyState';
-import { getPapersByProject } from '@/lib/mock';
+import { getPapersByProject } from '@/lib/queries';
 import { loadProject } from '@/lib/mock/loaders';
 import { PAPER_STAGE_LABELS, PAPER_STAGE_ORDER, PAPER_STAGE_TONE } from '@/lib/labels';
 
 export default async function PapersTab({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await loadProject(params);
-  const papers = getPapersByProject(slug);
+  const papers = await getPapersByProject(slug);
   if (papers.length === 0) return <EmptyState title="No papers yet" body="When you add papers to this project, they'll appear here." />;
 
   return (

@@ -2,13 +2,16 @@ import { notFound } from 'next/navigation';
 import { MarkdownBody } from '@/components/md/MarkdownBody';
 import { Avatar } from '@/components/people/Avatar';
 import { EmptyState } from '@/components/misc/EmptyState';
-import { getDiscussionById, getMemberByLogin } from '@/lib/mock';
+import { getDiscussionById, getAllMembers } from '@/lib/queries';
 
 export default async function DiscussionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const d = getDiscussionById(id);
+  const d = await getDiscussionById(id);
   if (!d) notFound();
-  const author = getMemberByLogin(d.authorLogin);
+
+  const allMembers = await getAllMembers();
+  const memberMap = new Map(allMembers.map(m => [m.login, m]));
+  const author = memberMap.get(d.authorLogin);
 
   return (
     <article className="max-w-3xl space-y-6">
@@ -32,7 +35,7 @@ export default async function DiscussionDetail({ params }: { params: Promise<{ i
           <EmptyState title="Start the thread" body="Be the first to reply." />
         ) : (
           d.replies.map((r, i) => {
-            const m = getMemberByLogin(r.authorLogin);
+            const m = memberMap.get(r.authorLogin);
             return (
               <div key={i} className="bg-white border border-border-default rounded-md p-4">
                 <div className="text-xs text-fg-muted mb-2 flex items-center gap-2">

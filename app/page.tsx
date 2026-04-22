@@ -3,14 +3,19 @@ import Link from 'next/link';
 import { ProjectCard } from '@/components/project/ProjectCard';
 import { ActivityFeedItem } from '@/components/feed/ActivityFeedItem';
 import { DeadlineList } from '@/components/misc/DeadlineList';
-import { getPinnedProjects, getUpcomingVenues, getRecentEvents } from '@/lib/mock';
+import { getPinnedProjects, getUpcomingVenues, getRecentEvents } from '@/lib/queries';
+import { resolveEventContext } from '@/lib/queries/resolve';
 import { requestNow } from '@/lib/time';
 
-export default function Dashboard() {
+export default async function Dashboard() {
   const now = requestNow();
-  const pinned = getPinnedProjects();
-  const venues = getUpcomingVenues(new Date(now)).slice(0, 5);
-  const events = getRecentEvents(12);
+  const [pinned, venuesAll, events] = await Promise.all([
+    getPinnedProjects(),
+    getUpcomingVenues(new Date(now)),
+    getRecentEvents(12),
+  ]);
+  const venues = venuesAll.slice(0, 5);
+  const eventCtx = await resolveEventContext(events);
 
   return (
     <div className="space-y-8">
@@ -34,7 +39,7 @@ export default function Dashboard() {
       <section>
         <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-3">Recent activity</h2>
         <ul className="bg-white border border-border-default rounded-md px-4 list-none">
-          {events.map(e => <ActivityFeedItem key={e.id} event={e} now={now} />)}
+          {events.map(e => <ActivityFeedItem key={e.id} event={e} now={now} ctx={eventCtx} />)}
         </ul>
       </section>
     </div>

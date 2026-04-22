@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Avatar } from '@/components/people/Avatar';
-import { CURRENT_USER } from '@/lib/mock';
+import { CURRENT_USER } from '@/lib/queries/constants';
 
 export function AccountMenu() {
   return (

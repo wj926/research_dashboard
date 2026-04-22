@@ -5,12 +5,10 @@ import { useDraggable } from '@dnd-kit/core';
 import type { Paper } from '@/lib/types';
 import { AvatarStack } from '@/components/people/AvatarStack';
 import { LabelChip } from '@/components/badges/LabelChip';
-import { getProjectBySlug } from '@/lib/mock';
 import { relDeadline } from '@/lib/time';
 
-export function KanbanCard({ paper, now }: { paper: Paper; now: number }) {
+export function KanbanCard({ paper, projectName, now }: { paper: Paper; projectName?: string; now: number }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: paper.id });
-  const proj = getProjectBySlug(paper.projectSlug);
   return (
     <div
       ref={setNodeRef}
@@ -25,7 +23,7 @@ export function KanbanCard({ paper, now }: { paper: Paper; now: number }) {
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <AvatarStack logins={paper.authorLogins} size={18} />
-        {proj && <Link href={`/projects/${proj.slug}`} className="text-xs text-fg-muted hover:text-accent-fg">{proj.name}</Link>}
+        {projectName && <Link href={`/projects/${paper.projectSlug}`} className="text-xs text-fg-muted hover:text-accent-fg">{projectName}</Link>}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import type { ReleaseKind } from '@/lib/types';
 import { LabelChip } from '@/components/badges/LabelChip';
 import { EmptyState } from '@/components/misc/EmptyState';
-import { getReleasesByProject } from '@/lib/mock';
+import { getReleasesByProject } from '@/lib/queries';
 import { loadProject } from '@/lib/mock/loaders';
 
 const KIND_TONE: Record<ReleaseKind, 'neutral' | 'accent' | 'done' | 'success'> = {
@@ -10,7 +10,7 @@ const KIND_TONE: Record<ReleaseKind, 'neutral' | 'accent' | 'done' | 'success'> 
 
 export default async function DataTab({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await loadProject(params);
-  const releases = getReleasesByProject(slug).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  const releases = (await getReleasesByProject(slug)).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   if (releases.length === 0) return <EmptyState title="No releases" body="Datasets, tools, and Claude Code skills released by this project show here." />;
 
   return (

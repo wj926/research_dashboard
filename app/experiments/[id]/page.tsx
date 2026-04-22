@@ -2,14 +2,16 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { StatusBadge } from '@/components/badges/StatusBadge';
 import { Avatar } from '@/components/people/Avatar';
-import { getProjectBySlug, getMemberByLogin, getRunById } from '@/lib/mock';
+import { getProjectBySlug, getMemberByLogin, getRunById } from '@/lib/queries';
 
 export default async function RunDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const run = getRunById(id);
+  const run = await getRunById(id);
   if (!run) notFound();
-  const proj = getProjectBySlug(run.projectSlug);
-  const actor = getMemberByLogin(run.triggeredByLogin);
+  const [proj, actor] = await Promise.all([
+    getProjectBySlug(run.projectSlug),
+    getMemberByLogin(run.triggeredByLogin),
+  ]);
 
   return (
     <div className="space-y-4">

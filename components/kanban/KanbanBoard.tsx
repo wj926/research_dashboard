@@ -13,7 +13,7 @@ const COLUMNS: { stage: PaperStage; label: string }[] = PAPER_STAGE_ORDER.map(st
 
 // TODO: keyboard accessibility — add @dnd-kit KeyboardSensor + coordinate getter for a11y (post-MVP).
 // TODO: if `initial` ever becomes dynamic (router.refresh, router-driven data), useState(initial) will silently freeze — remount board or sync via effect.
-export function KanbanBoard({ initial }: { initial: Paper[] }) {
+export function KanbanBoard({ initial, projectNames }: { initial: Paper[]; projectNames: Record<string, string> }) {
   const [items, setItems] = useState(initial);
   const [now] = useState(() => Date.now());
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -32,7 +32,7 @@ export function KanbanBoard({ initial }: { initial: Paper[] }) {
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-4">
         {COLUMNS.map(c => (
-          <KanbanColumn key={c.stage} stage={c.stage} label={c.label} papers={items.filter(p => p.stage === c.stage)} now={now} />
+          <KanbanColumn key={c.stage} stage={c.stage} label={c.label} papers={items.filter(p => p.stage === c.stage)} projectNames={projectNames} now={now} />
         ))}
       </div>
     </DndContext>

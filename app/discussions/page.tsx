@@ -1,5 +1,5 @@
 import { DiscussionRow } from '@/components/discussions/DiscussionRow';
-import { discussions } from '@/lib/mock';
+import { getAllDiscussions } from '@/lib/queries';
 import {
   DISCUSSION_CATEGORY_LABELS,
   DISCUSSION_CATEGORY_ICONS,
@@ -7,8 +7,9 @@ import {
 } from '@/lib/labels';
 import { requestNow } from '@/lib/time';
 
-export default function DiscussionsIndex() {
+export default async function DiscussionsIndex() {
   const now = requestNow();
+  const discussions = await getAllDiscussions();
   const sorted = [...discussions].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">

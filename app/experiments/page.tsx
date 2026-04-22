@@ -1,10 +1,13 @@
 import { RunRow } from '@/components/runs/RunRow';
-import { experiments } from '@/lib/mock';
+import { getAllRuns } from '@/lib/queries';
+import { resolveRunContext } from '@/lib/queries/resolve';
 import { requestNow } from '@/lib/time';
 
-export default function ExperimentsIndex() {
+export default async function ExperimentsIndex() {
   const now = requestNow();
-  const runs = [...experiments].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const all = await getAllRuns();
+  const runs = [...all].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const ctx = await resolveRunContext(runs);
   return (
     <div className="space-y-4">
       <h1 className="text-lg font-semibold">Experiments</h1>
@@ -24,7 +27,7 @@ export default function ExperimentsIndex() {
         ))}
       </div>
       <ul className="bg-white border border-border-default rounded-md">
-        {runs.map(r => <RunRow key={r.id} run={r} now={now} />)}
+        {runs.map(r => <RunRow key={r.id} run={r} now={now} ctx={ctx} />)}
       </ul>
     </div>
   );

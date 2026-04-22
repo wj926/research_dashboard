@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { Avatar } from '@/components/people/Avatar';
 import { LabelChip } from '@/components/badges/LabelChip';
-import { getMembersByProject } from '@/lib/mock';
+import { getMembersByProject } from '@/lib/queries';
 import { loadProject } from '@/lib/mock/loaders';
 
 export default async function MembersTab({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await loadProject(params);
-  const members = getMembersByProject(slug);
+  const members = await getMembersByProject(slug);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ExperimentRun } from '@/lib/types';
 import { StatusBadge } from '@/components/badges/StatusBadge';
 import { Avatar } from '@/components/people/Avatar';
-import { getProjectBySlug, getMemberByLogin } from '@/lib/mock';
+import type { RunContext } from '@/lib/queries/resolve';
 import { relTime } from '@/lib/time';
 
 function fmtDuration(sec?: number) {
@@ -13,9 +13,9 @@ function fmtDuration(sec?: number) {
   return `${h}h ${m}m`;
 }
 
-export function RunRow({ run, hideProject = false, now }: { run: ExperimentRun; hideProject?: boolean; now: number }) {
-  const proj = getProjectBySlug(run.projectSlug);
-  const actor = getMemberByLogin(run.triggeredByLogin);
+export function RunRow({ run, hideProject = false, now, ctx }: { run: ExperimentRun; hideProject?: boolean; now: number; ctx: RunContext }) {
+  const proj = ctx.projects.get(run.projectSlug);
+  const actor = ctx.members.get(run.triggeredByLogin);
   return (
     <li className="px-4 py-3 flex items-center gap-3 border-b border-border-muted last:border-0">
       <StatusBadge status={run.status} />
