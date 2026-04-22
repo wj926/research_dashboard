@@ -1,0 +1,38 @@
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { Avatar } from '@/components/people/Avatar';
+import { LabelChip } from '@/components/badges/LabelChip';
+import { getMemberByLogin, getProjectBySlug } from '@/lib/mock';
+
+export default async function MemberProfile({ params }: { params: Promise<{ login: string }> }) {
+  const { login } = await params;
+  const m = getMemberByLogin(login);
+  if (!m) notFound();
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <aside className="bg-white border border-border-default rounded-md p-4 text-center">
+        <div className="flex justify-center"><Avatar login={m.login} size={120} /></div>
+        <h1 className="text-lg font-semibold mt-3">{m.displayName}</h1>
+        <div className="text-sm text-fg-muted">@{m.login}</div>
+        <div className="mt-2"><LabelChip>{m.role}</LabelChip></div>
+        {m.bio && <p className="text-sm text-fg-muted mt-3 leading-5">{m.bio}</p>}
+      </aside>
+      <section>
+        <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold mb-2">Pinned projects</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {m.pinnedProjectSlugs.map(s => {
+            const p = getProjectBySlug(s);
+            if (!p) return null;
+            return (
+              <Link key={s} href={`/projects/${s}`} className="bg-white border border-border-default rounded-md p-4 hover:border-accent-fg">
+                <div className="font-semibold text-accent-fg">{p.name}</div>
+                <p className="text-xs text-fg-muted mt-1 line-clamp-2">{p.description}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
