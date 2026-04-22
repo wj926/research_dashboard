@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { PlusIcon } from '@primer/octicons-react';
 import { LabelChip } from '@/components/badges/LabelChip';
 import { Avatar } from '@/components/people/Avatar';
 import { EmptyState } from '@/components/misc/EmptyState';
@@ -8,10 +10,30 @@ import { PAPER_STAGE_LABELS, PAPER_STAGE_ORDER, PAPER_STAGE_TONE } from '@/lib/l
 export default async function PapersTab({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await loadProject(params);
   const papers = await getPapersByProject(slug);
-  if (papers.length === 0) return <EmptyState title="No papers yet" body="When you add papers to this project, they'll appear here." />;
+
+  const newPaperLink = (
+    <div className="mb-3 flex justify-end">
+      <Link
+        href={`/projects/${slug}/papers/new`}
+        className="px-3 h-8 inline-flex items-center gap-1 rounded-md border border-border-default text-sm hover:bg-canvas-subtle"
+      >
+        <PlusIcon size={14} /> New paper
+      </Link>
+    </div>
+  );
+
+  if (papers.length === 0) {
+    return (
+      <div>
+        {newPaperLink}
+        <EmptyState title="No papers yet" body="When you add papers to this project, they'll appear here." />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {newPaperLink}
       {PAPER_STAGE_ORDER.map(stage => {
         const group = papers.filter(p => p.stage === stage);
         if (group.length === 0) return null;
