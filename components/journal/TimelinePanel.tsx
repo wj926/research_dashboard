@@ -261,25 +261,13 @@ function MilestoneNode({
             </PopoverTrigger>
           </TooltipTrigger>
           {!open && (
-            <TooltipContent side="top" align="center">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      'inline-block text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded',
-                      STATUS_TONE[m.status],
-                    )}
-                  >
-                    {STATUS_LABEL[m.status]}
-                  </span>
-                  <span className="text-white/80">{formatFullDate(m.date)}</span>
-                </div>
-                <div className="font-medium">{m.label}</div>
-                {m.note && <div className="text-white/70">{m.note}</div>}
-                <div className="text-[10px] text-white/50 pt-1 border-t border-white/10">
-                  Click to edit
-                </div>
-              </div>
+            <TooltipContent
+              side="top"
+              align="center"
+              sideOffset={4}
+              className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            >
+              {STATUS_LABEL[m.status]}
             </TooltipContent>
           )}
         </Tooltip>
