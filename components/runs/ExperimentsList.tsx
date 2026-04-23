@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { PlusIcon } from '@primer/octicons-react';
 import { RunRow } from '@/components/runs/RunRow';
 import type { ExperimentRun, Project, Member, RunStatus } from '@/lib/types';
 import type { RunContext } from '@/lib/queries/resolve';
@@ -37,7 +39,15 @@ export function ExperimentsList({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Experiments</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Experiments</h1>
+        <Link
+          href="/experiments/new"
+          className="inline-flex items-center gap-1 px-3 h-8 rounded-md bg-success-emphasis text-white text-sm font-medium hover:bg-success-fg"
+        >
+          <PlusIcon size={14} /> New run
+        </Link>
+      </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <select
           aria-label="Filter by status"
