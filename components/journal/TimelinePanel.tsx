@@ -227,14 +227,14 @@ function MilestoneNode({
               <button
                 type="button"
                 aria-label={`Edit milestone: ${m.label}`}
-                className="w-full text-center cursor-pointer rounded-md px-1 py-2 -mx-1 -my-2 hover:bg-canvas-subtle focus-visible:bg-canvas-subtle focus-visible:outline-none transition-colors"
+                className="group w-full text-center cursor-pointer px-1 py-2 -mx-1 -my-2 focus-visible:outline-none"
               >
                 <div
                   className={cn(
-                    'w-4 h-4 rounded-full mx-auto relative transition-transform group-hover:scale-110',
-                    m.status === 'past' && 'bg-fg-default',
-                    m.status === 'now' && 'bg-accent-emphasis ring-4 ring-accent-subtle',
-                    m.status === 'future' && 'bg-border-default',
+                    'w-4 h-4 rounded-full mx-auto relative transition-all',
+                    m.status === 'past' && 'bg-fg-default group-hover:ring-4 group-hover:ring-canvas-inset group-focus-visible:ring-4 group-focus-visible:ring-canvas-inset',
+                    m.status === 'now' && 'bg-accent-emphasis ring-4 ring-accent-subtle group-hover:ring-accent-emphasis/30 group-focus-visible:ring-accent-emphasis/30',
+                    m.status === 'future' && 'bg-border-default group-hover:ring-4 group-hover:ring-border-muted group-focus-visible:ring-4 group-focus-visible:ring-border-muted',
                   )}
                 />
                 <div className="mt-3">
