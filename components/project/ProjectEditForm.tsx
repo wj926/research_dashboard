@@ -9,6 +9,7 @@ import {
 } from '@/lib/actions/projects';
 import type { Project } from '@/lib/types';
 import { ProjectDeleteButton } from '@/components/project/ProjectDeleteButton';
+import { GitHubConnectCard } from '@/components/project/GitHubConnectCard';
 
 export function ProjectEditForm({ project }: { project: Project }) {
   const bound = updateProjectAction.bind(null, project.slug);
@@ -123,6 +124,12 @@ export function ProjectEditForm({ project }: { project: Project }) {
           </Link>
         </div>
       </form>
+
+      <GitHubConnectCard
+        slug={project.slug}
+        {...(project.githubRepo ? { githubRepo: project.githubRepo } : {})}
+        {...(project.lastSyncedAt ? { lastSyncedAt: project.lastSyncedAt } : {})}
+      />
 
       <section className="mt-8 border-t border-danger-subtle pt-6">
         <h2 className="text-sm font-semibold text-danger-fg mb-2">Danger zone</h2>
