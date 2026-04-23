@@ -16,6 +16,8 @@ model Member {
   displayName        String
   role               String
   avatarUrl          String?
+  email              String?   @unique // OAuth email (nullable until first login)
+  githubLogin        String?   @unique // GitHub handle (nullable until admin sets it)
   bio                String?
   pinnedProjectSlugs String    // JSON array stored as string
   source             String    @default("internal")
@@ -29,6 +31,61 @@ model Member {
   authoredReplies     Reply[]
   authoredEvents      ActivityEvent[]
   journalEntries      ResearchEntry[]
+
+  // Back-relation from NextAuth User (optional one-to-one)
+  user User?
+}
+
+// ========== NextAuth.js v5 tables ==========
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+
+  // Link to our domain Member by login (nullable until first successful signIn)
+  memberLogin String? @unique
+  member      Member? @relation(fields: [memberLogin], references: [login], onDelete: SetNull)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 // ========== Projects ==========
