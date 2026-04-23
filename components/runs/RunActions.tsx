@@ -33,6 +33,7 @@ export function RunActions({ runId, projectSlug }: { runId: string; projectSlug:
     <div className="flex items-center gap-2 text-xs">
       <Link
         href={`/projects/${projectSlug}/experiments/${runId}/edit`}
+        aria-label="Edit run"
         className="inline-flex items-center gap-1 px-2 h-7 border border-border-default rounded-md bg-canvas-subtle hover:bg-canvas-inset"
       >
         <PencilIcon size={14} /> Edit
