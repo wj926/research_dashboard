@@ -231,7 +231,7 @@ function MilestoneNode({
               >
                 <div
                   className={cn(
-                    'w-4 h-4 rounded-full mx-auto relative transition-all group-hover:ring-4 group-hover:ring-fg-muted group-focus-visible:ring-4 group-focus-visible:ring-fg-muted',
+                    'w-4 h-4 rounded-full mx-auto relative transition-all group-hover:ring-4 group-hover:ring-border-default group-focus-visible:ring-4 group-focus-visible:ring-border-default',
                     m.status === 'past' && 'bg-fg-default',
                     m.status === 'now' && 'bg-accent-emphasis',
                     m.status === 'future' && 'bg-attention-emphasis',
