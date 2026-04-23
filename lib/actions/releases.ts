@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import type { ReleaseKind } from '@/lib/types';
-import { CURRENT_USER } from '@/lib/queries/constants';
+import { getCurrentUserLogin } from '@/lib/session';
 import { logActivity } from './events';
 
 export type CreateReleaseState = { error?: string } | null;
@@ -49,9 +49,10 @@ export async function createReleaseAction(
     },
   });
 
+  const currentUser = await getCurrentUserLogin();
   await logActivity({
     type: 'release',
-    actorLogin: CURRENT_USER,
+    actorLogin: currentUser,
     projectSlug,
     payload: { releaseId: id, action: 'published' },
   });

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
-import { CURRENT_USER } from '@/lib/queries/constants';
+import { getCurrentUserLogin } from '@/lib/session';
 import type { DiscussionCategory } from '@/lib/types';
 import { logActivity } from './events';
 
@@ -34,13 +34,14 @@ export async function createDiscussion(
 
   const id = `d-${randomUUID().slice(0, 8)}`;
   const now = new Date();
+  const currentUser = await getCurrentUserLogin();
 
   await prisma.discussion.create({
     data: {
       id,
       category,
       title,
-      authorLogin: CURRENT_USER,
+      authorLogin: currentUser,
       projectSlug,
       createdAt: now,
       lastActivityAt: now,
@@ -51,7 +52,7 @@ export async function createDiscussion(
 
   await logActivity({
     type: 'discussion',
-    actorLogin: CURRENT_USER,
+    actorLogin: currentUser,
     projectSlug: projectSlug ?? undefined,
     payload: { discussionId: id, action: 'opened' },
   });
@@ -77,12 +78,13 @@ export async function createReply(
 
   const now = new Date();
   const nextPosition = await prisma.reply.count({ where: { discussionId } });
+  const currentUser = await getCurrentUserLogin();
 
   await prisma.$transaction([
     prisma.reply.create({
       data: {
         discussionId,
-        authorLogin: CURRENT_USER,
+        authorLogin: currentUser,
         createdAt: now,
         bodyMarkdown: body,
         position: nextPosition,
@@ -96,7 +98,7 @@ export async function createReply(
 
   await logActivity({
     type: 'discussion',
-    actorLogin: CURRENT_USER,
+    actorLogin: currentUser,
     payload: { discussionId, action: 'replied' },
   });
 

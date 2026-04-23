@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { CURRENT_USER } from '@/lib/queries/constants';
+import { getCurrentUserLogin } from '@/lib/session';
 import { logActivity } from './events';
 
 export type CreateProjectState = { error?: string } | null;
@@ -53,6 +53,7 @@ export async function createProject(
 
   const tags = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
   const now = new Date();
+  const currentUser = await getCurrentUserLogin();
 
   await prisma.project.create({
     data: {
@@ -64,14 +65,14 @@ export async function createProject(
       createdAt: now,
       updatedAt: now,
       members: {
-        create: [{ memberLogin: CURRENT_USER }],
+        create: [{ memberLogin: currentUser }],
       },
     },
   });
 
   await logActivity({
     type: 'project',
-    actorLogin: CURRENT_USER,
+    actorLogin: currentUser,
     projectSlug: slug,
     payload: { action: 'created' },
   });

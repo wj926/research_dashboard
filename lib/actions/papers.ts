@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { PAPER_STAGE_ORDER } from '@/lib/labels';
 import type { PaperStage } from '@/lib/types';
-import { CURRENT_USER } from '@/lib/queries/constants';
+import { getCurrentUserLogin } from '@/lib/session';
 import { logActivity } from './events';
 
 export async function updatePaperStage(paperId: string, stage: PaperStage): Promise<void> {
@@ -64,9 +64,10 @@ export async function createPaper(
     },
   });
 
+  const currentUser = await getCurrentUserLogin();
   await logActivity({
     type: 'paper',
-    actorLogin: authors[0] ?? CURRENT_USER,
+    actorLogin: authors[0] ?? currentUser,
     projectSlug,
     payload: { paperId: id, action: stage === 'published' ? 'published' : 'created' },
   });

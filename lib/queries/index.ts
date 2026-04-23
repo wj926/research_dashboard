@@ -30,7 +30,8 @@ import type {
   TodoBucket,
 } from '@/lib/types';
 
-export { CURRENT_USER } from './constants';
+// CURRENT_USER has been removed — use getCurrentUserLogin() from '@/lib/session'
+// on the server or useSession() on the client.
 
 // ============================================================================
 // Row -> domain mappers
@@ -41,6 +42,8 @@ type MemberRow = {
   displayName: string;
   role: string;
   avatarUrl: string | null;
+  email: string | null;
+  githubLogin: string | null;
   bio: string | null;
   pinnedProjectSlugs: string;
 };
@@ -53,6 +56,8 @@ function mapMember(row: MemberRow): Member {
     pinnedProjectSlugs: JSON.parse(row.pinnedProjectSlugs) as Slug[],
   };
   if (row.avatarUrl != null) member.avatarUrl = row.avatarUrl;
+  if (row.email != null) member.email = row.email;
+  if (row.githubLogin != null) member.githubLogin = row.githubLogin;
   if (row.bio != null) member.bio = row.bio;
   return member;
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
-import { CURRENT_USER } from '@/lib/queries/constants';
+import { getCurrentUserLogin } from '@/lib/session';
 import type { EntryType, SlideKind, ArtifactType } from '@/lib/types';
 
 export type EntryActionState = { error?: string } | null;
@@ -63,7 +63,8 @@ export async function createEntryAction(
 ): Promise<EntryActionState> {
   const dateStr = String(formData.get('date') ?? '').trim();
   const type = String(formData.get('type') ?? '') as EntryType;
-  const authorLogin = String(formData.get('authorLogin') ?? '').trim() || CURRENT_USER;
+  const authorLoginRaw = String(formData.get('authorLogin') ?? '').trim();
+  const authorLogin = authorLoginRaw || (await getCurrentUserLogin());
   const title = String(formData.get('title') ?? '').trim();
   const summary = String(formData.get('summary') ?? '').trim();
   const tagsRaw = String(formData.get('tags') ?? '');
@@ -133,7 +134,8 @@ export async function updateEntryAction(
 
   const dateStr = String(formData.get('date') ?? '').trim();
   const type = String(formData.get('type') ?? '') as EntryType;
-  const authorLogin = String(formData.get('authorLogin') ?? '').trim() || CURRENT_USER;
+  const authorLoginRaw = String(formData.get('authorLogin') ?? '').trim();
+  const authorLogin = authorLoginRaw || (await getCurrentUserLogin());
   const title = String(formData.get('title') ?? '').trim();
   const summary = String(formData.get('summary') ?? '').trim();
   const tagsRaw = String(formData.get('tags') ?? '');

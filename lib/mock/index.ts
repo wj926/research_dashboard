@@ -10,8 +10,6 @@ import type { Slug, UserLogin } from '@/lib/types';
 
 export { members, projects, papers, experiments, discussions, releases, events, venues };
 
-export const CURRENT_USER: UserLogin = 'dgu';
-
 export function getProjectBySlug(slug: Slug) {
   return projects.find(p => p.slug === slug);
 }
