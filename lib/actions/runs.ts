@@ -8,8 +8,8 @@ import type { RunStatus } from '@/lib/types';
 import { logActivity } from './events';
 import { runStatusToEventAction } from '@/lib/events';
 
-export type UpdateRunState = { error?: string } | null;
-export type CreateRunState = { error?: string } | null;
+export type UpdateRunState = { error?: string; ok?: boolean } | null;
+export type CreateRunState = { error?: string; ok?: boolean } | null;
 
 const STATUSES: readonly RunStatus[] = ['success', 'failure', 'in_progress', 'queued', 'cancelled'];
 
@@ -77,6 +77,8 @@ export async function createRunAction(
   revalidatePath('/experiments');
   revalidatePath(`/projects/${projectSlug}/experiments`);
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${projectSlug}/experiments/${finalId}`);
 }
 
@@ -101,6 +103,8 @@ export async function updateRunAction(
   revalidatePath('/experiments');
   revalidatePath(`/projects/${existing.projectSlug}/experiments`);
   revalidatePath(`/projects/${existing.projectSlug}/experiments/${id}`);
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${existing.projectSlug}/experiments/${id}`);
 }
 

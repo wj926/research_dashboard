@@ -10,7 +10,7 @@ import { logActivity } from './events';
 
 const CATEGORY_VALUES: readonly DiscussionCategory[] = ['announcements', 'journal_club', 'qa', 'ideas'];
 
-export type CreateDiscussionState = { error?: string } | null;
+export type CreateDiscussionState = { error?: string; ok?: boolean } | null;
 
 export async function createDiscussion(
   _prev: CreateDiscussionState,
@@ -60,6 +60,8 @@ export async function createDiscussion(
   revalidatePath('/discussions');
   if (projectSlug) revalidatePath(`/projects/${projectSlug}/discussions`);
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/discussions/${id}`);
 }
 
@@ -108,7 +110,7 @@ export async function createReply(
   return null;
 }
 
-export type UpdateDiscussionState = { error?: string } | null;
+export type UpdateDiscussionState = { error?: string; ok?: boolean } | null;
 
 export async function updateDiscussionAction(
   discussionId: string,
@@ -146,6 +148,8 @@ export async function updateDiscussionAction(
     revalidatePath(`/projects/${projectSlug}/discussions`);
   }
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/discussions/${discussionId}`);
 }
 

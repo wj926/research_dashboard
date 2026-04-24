@@ -8,8 +8,8 @@ import type { ReleaseKind } from '@/lib/types';
 import { getCurrentUserLogin } from '@/lib/session';
 import { logActivity } from './events';
 
-export type CreateReleaseState = { error?: string } | null;
-export type UpdateReleaseState = { error?: string } | null;
+export type CreateReleaseState = { error?: string; ok?: boolean } | null;
+export type UpdateReleaseState = { error?: string; ok?: boolean } | null;
 
 const KINDS: readonly ReleaseKind[] = ['dataset', 'tool', 'skill', 'model'];
 
@@ -60,6 +60,8 @@ export async function createReleaseAction(
   revalidatePath(`/projects/${projectSlug}/data`);
   revalidatePath(`/projects/${projectSlug}`);
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${projectSlug}/data`);
 }
 
@@ -101,6 +103,8 @@ export async function updateReleaseAction(
   revalidatePath(`/projects/${existing.projectSlug}/data`);
   revalidatePath(`/projects/${existing.projectSlug}`);
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${existing.projectSlug}/data`);
 }
 

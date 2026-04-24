@@ -19,7 +19,7 @@ export async function updatePaperStage(paperId: string, stage: PaperStage): Prom
   revalidatePath('/projects');
 }
 
-export type CreatePaperState = { error?: string } | null;
+export type CreatePaperState = { error?: string; ok?: boolean } | null;
 
 export async function createPaper(
   projectSlug: string,
@@ -75,10 +75,12 @@ export async function createPaper(
   revalidatePath(`/projects/${projectSlug}/papers`);
   revalidatePath('/pipeline');
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${projectSlug}/papers`);
 }
 
-export type UpdatePaperState = { error?: string } | null;
+export type UpdatePaperState = { error?: string; ok?: boolean } | null;
 
 export async function updatePaperAction(
   paperId: string,
@@ -120,6 +122,8 @@ export async function updatePaperAction(
   revalidatePath(`/projects/${existing.projectSlug}/papers`);
   revalidatePath('/pipeline');
   revalidatePath('/');
+  const noRedirect = String(formData.get('__noRedirect') ?? '') === '1';
+  if (noRedirect) return { ok: true };
   redirect(`/projects/${existing.projectSlug}/papers`);
 }
 
