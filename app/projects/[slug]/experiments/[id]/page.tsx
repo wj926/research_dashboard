@@ -39,7 +39,7 @@ export default async function ProjectRunDetail({
               timeStyle: 'short',
             })}
           </span>
-          <RunActions runId={run.id} projectSlug={slug} />
+          <RunActions run={run} projectSlug={slug} />
         </div>
       </div>
       {run.summary && (
