@@ -9,9 +9,9 @@ test('edit discussion title', async ({ page }) => {
   await page.getByRole('button', { name: 'Create discussion' }).click();
   await expect(page.getByRole('heading', { name: originalTitle })).toBeVisible();
 
-  // Go to edit
-  await page.getByRole('link', { name: /Edit/ }).first().click();
-  await expect(page.getByRole('heading', { name: /Edit discussion/ })).toBeVisible();
+  // Edit via slide-over on the detail page
+  await page.getByRole('button', { name: /Edit/ }).first().click();
+  await expect(page.getByRole('dialog', { name: /Edit discussion/ })).toBeVisible();
   const newTitle = `Edited title ${ts}`;
   await page.getByLabel('Title').fill(newTitle);
   await page.getByLabel(/Body/).fill('updated body');

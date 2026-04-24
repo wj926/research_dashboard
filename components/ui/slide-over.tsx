@@ -36,6 +36,7 @@ export function SlideOver({
           )}
         />
         <DialogPrimitive.Content
+          aria-describedby={undefined}
           className={cn(
             'fixed right-0 top-0 bottom-0 z-50 w-full bg-white shadow-xl flex flex-col',
             'transform transition-transform duration-200 ease-out',
