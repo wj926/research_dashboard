@@ -8,9 +8,12 @@ import { deleteReleaseAction } from '@/lib/actions/releases';
 export function ReleaseRowActions({
   projectSlug,
   releaseId,
+  onEdit,
 }: {
   projectSlug: string;
   releaseId: string;
+  /** When provided, Edit opens the slide-over instead of navigating to /edit. */
+  onEdit?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -35,15 +38,29 @@ export function ReleaseRowActions({
     });
   };
 
+  const editClass =
+    'inline-flex items-center gap-1 px-2 h-7 border border-border-default rounded-md bg-canvas-subtle hover:bg-canvas-inset';
+
   return (
     <div className="flex items-center gap-1 text-xs">
-      <Link
-        href={`/projects/${projectSlug}/data/${releaseId}/edit`}
-        aria-label="Edit release"
-        className="inline-flex items-center gap-1 px-2 h-7 border border-border-default rounded-md bg-canvas-subtle hover:bg-canvas-inset"
-      >
-        <PencilIcon size={14} />
-      </Link>
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label="Edit release"
+          className={editClass}
+        >
+          <PencilIcon size={14} />
+        </button>
+      ) : (
+        <Link
+          href={`/projects/${projectSlug}/data/${releaseId}/edit`}
+          aria-label="Edit release"
+          className={editClass}
+        >
+          <PencilIcon size={14} />
+        </Link>
+      )}
       <button
         type="button"
         onClick={handleDelete}
