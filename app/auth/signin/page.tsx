@@ -46,8 +46,9 @@ export default async function SignInPage({
         </form>
 
         <p className="text-xs text-fg-muted text-center">
-          Only registered lab members can sign in. Need access? Ask the admin to
-          register your GitHub handle or email.
+          Sign in with any GitHub account. If you&apos;re new here, a member
+          profile will be created automatically — you can edit your name,
+          role, and avatar afterwards.
         </p>
       </div>
     </main>

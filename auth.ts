@@ -37,34 +37,67 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (!githubLogin && !email) return false;
 
+      // Open-registration policy: try to match an existing Member; if none,
+      // auto-create one from the GitHub profile. Every signed-in user is a
+      // full Member with full permissions (no pending/guest tier).
       const orClauses: { githubLogin?: string; email?: string }[] = [];
       if (githubLogin) orClauses.push({ githubLogin });
       if (email) orClauses.push({ email });
 
-      const member = await prisma.member.findFirst({
+      let member = await prisma.member.findFirst({
         where: { OR: orClauses },
       });
 
-      // Not an allowlisted Member — forward to the error page.
-      if (!member) return '/auth/error?error=AccessDenied';
+      if (member) {
+        // Back-fill any missing Member identity fields from the GitHub profile.
+        const updates: {
+          email?: string;
+          githubLogin?: string;
+          avatarUrl?: string;
+        } = {};
+        if (!member.email && email) updates.email = email;
+        if (!member.githubLogin && githubLogin) updates.githubLogin = githubLogin;
+        if (!member.avatarUrl && user.image) updates.avatarUrl = user.image;
+        if (Object.keys(updates).length > 0) {
+          await prisma.member.update({
+            where: { login: member.login },
+            data: updates,
+          });
+        }
+      } else {
+        // Auto-create a new Member. Need some kind of GitHub handle to seed
+        // the login PK — reject if we somehow got neither login nor email.
+        if (!githubLogin) return false;
 
-      // Back-fill any missing Member identity fields from the GitHub profile.
-      const updates: {
-        email?: string;
-        githubLogin?: string;
-        avatarUrl?: string;
-      } = {};
-      if (!member.email && email) updates.email = email;
-      if (!member.githubLogin && githubLogin) updates.githubLogin = githubLogin;
-      if (!member.avatarUrl && user.image) updates.avatarUrl = user.image;
-      if (Object.keys(updates).length > 0) {
-        await prisma.member.update({
-          where: { login: member.login },
-          data: updates,
+        const normalizedLogin = githubLogin.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (!normalizedLogin) return false;
+
+        // Pick a free Member.login. Prefer the GitHub handle; fall back to
+        // suffixed variants if it's already taken by someone else's row.
+        let candidate = normalizedLogin;
+        let suffix = 0;
+        while (await prisma.member.findUnique({ where: { login: candidate } })) {
+          suffix += 1;
+          candidate = `${normalizedLogin}-${suffix}`;
+          if (suffix > 50) return false; // pathological collision guard
+        }
+
+        member = await prisma.member.create({
+          data: {
+            login: candidate,
+            displayName: user.name ?? githubLogin,
+            role: 'PhD', // sensible default; user can change via /members/[login]/edit
+            email: email ?? undefined,
+            githubLogin: githubLogin,
+            avatarUrl: user.image ?? undefined,
+            pinnedProjectSlugs: '[]',
+          },
         });
       }
 
-      // Link the NextAuth User row to our domain Member (one-time).
+      // Link the NextAuth User row to our domain Member (if already created).
+      // New users often don't have user.id yet — the session callback does a
+      // lazy backfill by email in that case.
       if (user.id) {
         await prisma.user
           .update({
