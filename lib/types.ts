@@ -22,6 +22,7 @@ export interface Project {
   releaseIds: string[];
   githubRepo?: string;
   readmeMarkdown?: string;
+  targetVenue?: string;
   lastSyncedAt?: string;
 }
 

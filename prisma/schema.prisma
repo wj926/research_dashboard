@@ -102,6 +102,7 @@ model Project {
   lastSyncedAt   DateTime?
   githubRepo     String?   // "owner/repo" when connected to GitHub
   readmeMarkdown String?   // optional synced README content (from GitHub or internal)
+  targetVenue    String?   // target conference / journal shown in Overview KPI bar
 
   repos       ProjectRepo[]
   members     ProjectMember[]

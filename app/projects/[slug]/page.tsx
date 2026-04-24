@@ -30,7 +30,10 @@ export default async function ProjectOverview({
   const papersCount = papers.length;
   const runsCount = runs.length;
   const meetingsCount = entries.filter(e => e.type === 'meeting').length;
-  const targetVenue = papers.find(p => p.venue)?.venue ?? '—';
+  // Prefer the explicit project.targetVenue if set; else fall back to the
+  // first paper's venue for backwards compatibility with projects that
+  // haven't set one yet.
+  const targetVenue = project.targetVenue ?? papers.find(p => p.venue)?.venue ?? '—';
 
   return (
     <div className="space-y-6">

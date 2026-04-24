@@ -96,6 +96,7 @@ export async function updateProjectAction(
   const description = String(formData.get('description') ?? '').trim();
   const tagsRaw = String(formData.get('tags') ?? '');
   const pinned = formData.get('pinned') === 'on';
+  const targetVenue = String(formData.get('targetVenue') ?? '').trim() || null;
 
   if (!name) return { error: 'Name is required.' };
   if (!description) return { error: 'Description is required.' };
@@ -109,6 +110,7 @@ export async function updateProjectAction(
       description,
       tags: JSON.stringify(tags),
       pinned,
+      targetVenue,
       updatedAt: new Date(),
     },
   });

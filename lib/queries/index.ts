@@ -72,6 +72,7 @@ type ProjectRow = {
   updatedAt: Date;
   githubRepo?: string | null;
   readmeMarkdown?: string | null;
+  targetVenue?: string | null;
   lastSyncedAt?: Date | null;
   members?: { memberLogin: string }[];
   repos?: { label: string; url: string }[];
@@ -95,6 +96,7 @@ function mapProject(row: ProjectRow): Project {
   };
   if (row.githubRepo != null) project.githubRepo = row.githubRepo;
   if (row.readmeMarkdown != null) project.readmeMarkdown = row.readmeMarkdown;
+  if (row.targetVenue != null) project.targetVenue = row.targetVenue;
   if (row.lastSyncedAt != null) project.lastSyncedAt = row.lastSyncedAt.toISOString();
   return project;
 }
