@@ -72,14 +72,10 @@ async function cmdGetProject(slug: string) {
   const prisma = newPrisma();
   const project = await prisma.project.findUnique({ where: { slug } });
   if (!project) throw new Error(`project not found: ${slug}`);
-  if (!project.githubRepo) {
-    throw new Error(
-      `project "${slug}" has no githubRepo set. Set Project.githubRepo (e.g. "owner/repo") before ingest.`,
-    );
-  }
   if (!project.localPath) {
     throw new Error(
-      `project "${slug}" has no localPath set. Set Project.localPath to the local git checkout path before ingest.`,
+      `project "${slug}" has no localPath set. Set Project.localPath to the local git checkout path before ingest. ` +
+      `(githubRepo is optional metadata for display; localPath is the operational source.)`,
     );
   }
 
@@ -129,9 +125,6 @@ async function cmdListNewProgress(slug: string, force: boolean) {
   const prisma = newPrisma();
   const project = await prisma.project.findUnique({ where: { slug } });
   if (!project) throw new Error(`project not found: ${slug}`);
-  if (!project.githubRepo) {
-    throw new Error(`project "${slug}" has no githubRepo set; ingest needs it`);
-  }
   if (!project.localPath) {
     throw new Error(`project "${slug}" has no localPath set; ingest needs it`);
   }

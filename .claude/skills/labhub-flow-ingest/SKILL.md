@@ -17,12 +17,13 @@ LabHub 의 Flow J view (Task Kanban + event timeline) 가 자동으로 채워지
 ## Hard requirements
 
 1. CWD 는 LabHub repo 여야 함: `/home/dami/wj/research_dashboard`. CLI 가 `prod.db` 를 cwd-relative path 로 찾기 때문.
-2. **Project 의 `githubRepo` AND `localPath` 둘 다 DB 에 설정돼있어야 함.** 없으면 CLI 가 즉시 에러로 종료. 사용자에게 안내:
+2. **Project 의 `localPath` 가 DB 에 설정돼있어야 함** (필수). 없으면 CLI 가 즉시 에러. 사용자에게:
    ```
-   이 프로젝트는 GitHub 추적이 설정 안 돼있어요. 먼저:
-   - LabHub UI 에서 프로젝트 편집 → "GitHub repo" + "Local path" 설정
-   - 또는 SQL: UPDATE Project SET githubRepo='owner/repo', localPath='/abs/path' WHERE slug='<slug>';
+   이 프로젝트의 localPath 가 설정 안 돼있어요. 먼저:
+   - LabHub UI 에서 프로젝트 편집 → "Local path" 설정
+   - 또는 SQL: UPDATE Project SET localPath='/abs/path' WHERE slug='<slug>';
    ```
+   `githubRepo` 는 표시용 metadata 라 선택. 있으면 좋음, 없어도 동작 (git origin 이 이미 localPath 의 git config 에 있음).
 3. 사용자가 invoke 할 때 cwd 가 다른 곳이면 먼저 `cd /home/dami/wj/research_dashboard` 실행.
 
 ## Procedure (in order)
