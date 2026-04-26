@@ -103,17 +103,51 @@ model Project {
   githubRepo     String?   // "owner/repo" when connected to GitHub
   readmeMarkdown String?   // optional synced README content (from GitHub or internal)
   targetVenue    String?   // target conference / journal shown in Overview KPI bar
+  localPath      String?   // absolute fs path of the git checkout (source for wiki ingest)
 
-  repos       ProjectRepo[]
-  members     ProjectMember[]
-  papers      Paper[]
-  releases    Release[]
-  runs        ExperimentRun[]
-  events      ActivityEvent[]
-  entries     ResearchEntry[]
-  milestones  Milestone[]
-  todos       TodoItem[]
-  discussions Discussion[]
+  repos        ProjectRepo[]
+  members      ProjectMember[]
+  papers       Paper[]
+  releases     Release[]
+  runs         ExperimentRun[]
+  events       ActivityEvent[]
+  entries      ResearchEntry[]
+  milestones   Milestone[]
+  todos        TodoItem[]
+  discussions  Discussion[]
+  wikiTypes    WikiType[]
+  wikiEntities WikiEntity[]
+  flowEvents   FlowEvent[]
+}
+
+// ========== Wiki (LLM-maintained per-project knowledge base) ==========
+model WikiType {
+  id          Int      @id @default(autoincrement())
+  projectSlug String
+  key         String   // e.g. 'attack', 'defense', 'concept', 'finding', 'method'
+  label       String   // display name e.g. 'Attacks'
+  position    Int      @default(0)
+  description String?
+
+  project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  @@unique([projectSlug, key])
+}
+
+model WikiEntity {
+  projectSlug     String
+  id              String   // slug-style id within the project, e.g. 'trigger_universal'
+  type            String   // matches a WikiType.key for the same project
+  name            String
+  status          String   @default("active") // 'active' | 'deprecated' | 'superseded'
+  summaryMarkdown String   @default("")
+  bodyMarkdown    String
+  sourceFiles     String   @default("[]") // JSON array of relative paths under Project.localPath
+  lastSyncedAt    DateTime
+  source          String   @default("wiki-llm")
+
+  project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  @@id([projectSlug, id])
+  @@index([projectSlug, type])
 }
 
 model ProjectMember {
@@ -319,5 +353,44 @@ model TodoItem {
   done        Boolean  @default(false)
   position    Int
 
+  // Flow J 추가 필드
+  goal     String?  // 1줄 "왜"
+  subtasks String?  // JSON array of strings
+  status   String   @default("in_progress")  // 'pending' | 'in_progress' | 'done'
+
+  project   Project             @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  flowLinks FlowEventTaskLink[]
+}
+
+// Flow events (LLM 이 progress 파일에서 추출한 사건). 사람이 수정/삭제 가능.
+model FlowEvent {
+  id          Int      @id @default(autoincrement())
+  projectSlug String
+  date        String   // free-form display string (예: '2026-04-25 09:11')
+  source      String   // progress filename — sourceContent 조회 + task link 매칭에 사용
+  title       String
+  summary     String
+  tone        String   // 'milestone' | 'pivot' | 'result' | 'incident' | 'design'
+  bullets     String?  // JSON array of strings
+  numbers     String?  // JSON array of { label, value }
+  tags        String?  // JSON array of strings (tag ids)
+  position    Int      @default(0)
+
   project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  @@unique([projectSlug, source])
+  @@index([projectSlug, date])
+}
+
+// Flow event ↔ TodoItem 다대다 (LLM 분류 결과 + 사람 수정)
+model FlowEventTaskLink {
+  id          Int      @id @default(autoincrement())
+  projectSlug String
+  eventSource String   // 현재는 FLOW_EVENTS mock 의 source 파일명. 향후 ResearchEntry.id 로 이전 가능.
+  todoId      Int
+  source      String   @default("manual")  // 'llm' | 'manual'
+  createdAt   DateTime @default(now())
+
+  todo TodoItem @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  @@unique([projectSlug, eventSource, todoId])
+  @@index([projectSlug, eventSource])
 }
