@@ -79,7 +79,7 @@ export default async function Dashboard({
   let projectsHeading: string;
   if (memberLogin) {
     projects = view === 'all' ? await getAllProjects() : myProjects;
-    projectsHeading = view === 'all' ? 'All projects' : 'My projects';
+    projectsHeading = view === 'all' ? 'All projects' : 'Joined projects';
   } else {
     projects = await getPinnedProjects();
     projectsHeading = 'Pinned projects';
@@ -96,8 +96,7 @@ export default async function Dashboard({
 
   const isProjectsEmpty = memberLogin && view === 'my' && projects.length === 0;
   const isActivityEmpty = events.length === 0;
-  const activityHeading =
-    memberLogin && activity === 'mine' ? 'Recent activity in my projects' : 'Recent activity';
+  const activityHeading = 'Recent activity';
 
   return (
     <div className="space-y-8">
@@ -107,7 +106,7 @@ export default async function Dashboard({
             <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold">{projectsHeading}</h2>
             {memberLogin && (
               <ToggleSegment
-                leftLabel="Mine"
+                leftLabel="Joined"
                 rightLabel="All"
                 leftHref={buildDashUrl('my', activity)}
                 rightHref={buildDashUrl('all', activity)}
@@ -157,7 +156,7 @@ export default async function Dashboard({
           <h2 className="text-xs uppercase tracking-wide text-fg-muted font-semibold">{activityHeading}</h2>
           {memberLogin && (
             <ToggleSegment
-              leftLabel="Mine"
+              leftLabel="Joined"
               rightLabel="All"
               leftHref={buildDashUrl(view, 'mine')}
               rightHref={buildDashUrl(view, 'all')}
@@ -167,7 +166,7 @@ export default async function Dashboard({
         </div>
         {isActivityEmpty ? (
           <div className="bg-white border border-border-default rounded-md p-6 text-sm text-fg-muted">
-            No recent activity in your projects yet.
+            No recent activity in your joined projects yet.
           </div>
         ) : (
           <ul className="bg-white border border-border-default rounded-md px-4 list-none">
