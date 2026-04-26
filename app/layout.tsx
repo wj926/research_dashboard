@@ -5,8 +5,8 @@ import { TopNav } from '@/components/nav/TopNav';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LabHub',
-  description: 'Research lab dashboard',
+  title: 'LabHub2 (wj)',
+  description: 'Research lab dashboard — damilab fork',
 };
 
 export default async function RootLayout({

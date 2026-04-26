@@ -10,7 +10,7 @@ export function TopNav() {
       <div className="max-w-screen-2xl mx-auto flex items-center gap-4 px-4 h-12">
         <Link href="/" className="flex items-center gap-2 font-semibold hover:opacity-80">
           <MarkGithubIcon size={22} />
-          <span>LabHub</span>
+          <span>LabHub2 <span className="text-white/60 text-xs font-normal">(wj)</span></span>
         </Link>
         <GlobalSearch />
         <nav className="flex items-center gap-4 text-sm">
