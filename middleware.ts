@@ -24,6 +24,11 @@ export default function middleware(req: NextRequest) {
   // specs continue to work without needing a session cookie.
   if (process.env.PLAYWRIGHT_TEST === 'true') return NextResponse.next();
 
+  // Temporary public-preview mode: when PUBLIC_MODE=true, skip the signin
+  // redirect so anyone can browse. Pages that internally require a session
+  // will still 4xx, but read-only landing pages render.
+  if (process.env.PUBLIC_MODE === 'true') return NextResponse.next();
+
   const { pathname, search } = req.nextUrl;
   const isAuthRoute = pathname.startsWith('/auth/');
   const isAuthApi = pathname.startsWith('/api/auth/');
