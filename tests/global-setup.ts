@@ -41,8 +41,11 @@ async function globalSetup() {
       ).run('testbot', 'Test Bot', 'PhD', 'testbot', '[]');
     }
 
-    const projectCount = (db.prepare('SELECT COUNT(*) as n FROM Project').get() as { n: number }).n;
-    if (projectCount === 0) {
+    // Deterministic fixture project. Ensure regardless of whatever real
+    // projects already live in the dev DB — tests assert against this slug
+    // explicitly.
+    const fixtureProject = db.prepare('SELECT 1 FROM Project WHERE slug = ?').get('phase1-test');
+    if (!fixtureProject) {
       const now = new Date().toISOString();
       db.prepare(
         `INSERT INTO Project (slug, name, description, tags, pinned, createdAt, updatedAt, source)
