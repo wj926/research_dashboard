@@ -32,17 +32,10 @@ async function main() {
       },
     });
 
-    for (const src of t.eventSources) {
-      await prisma.flowEventTaskLink.create({
-        data: {
-          projectSlug: PROJECT_SLUG,
-          eventSource: src,
-          todoId: todo.id,
-          source: 'llm', // mock pretends LLM did this
-        },
-      });
-      totalLinks += 1;
-    }
+    // Links are no longer seeded here — they need real FlowEvent.id which
+    // doesn't exist at task-seed time. Use ingest skill to create both.
+    void t.eventSources; // silence unused warning
+    void totalLinks;
   }
 
   const taskCount = await prisma.todoItem.count({ where: { projectSlug: PROJECT_SLUG } });

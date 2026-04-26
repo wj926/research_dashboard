@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { LabelChip } from '@/components/badges/LabelChip';
 import { statusTone } from '@/lib/wiki-status';
+import { newnessFromDate } from '@/components/flow/task-kanban-helpers';
 
 function snippet(md: string, max = 220): string {
   if (!md) return '';
@@ -77,12 +78,22 @@ export default async function ProjectWikiIndex({
               <div className="text-sm text-fg-muted italic">none yet</div>
             ) : (
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 list-none">
-                {list.map(e => (
+                {list.map(e => {
+                  const newness = newnessFromDate(e.lastSyncedAt);
+                  return (
                   <li key={e.id}>
                     <Link
                       href={`/projects/${slug}/wiki/${encodeURIComponent(e.id)}`}
-                      className="block bg-white rounded-md p-5 hover:bg-canvas-subtle transition-colors"
+                      className="relative block bg-white rounded-md p-5 hover:bg-canvas-subtle transition-colors"
                     >
+                      {newness > 0 && (
+                        <span
+                          className="absolute top-1 left-1 bg-danger-fg text-white text-[9px] font-semibold px-1 py-px rounded-full shadow-sm leading-none"
+                          style={{ opacity: newness }}
+                        >
+                          New!
+                        </span>
+                      )}
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-mono text-base font-semibold text-fg-default">{e.name}</span>
                         <LabelChip tone={statusTone(e.status)}>{e.status}</LabelChip>
@@ -94,7 +105,8 @@ export default async function ProjectWikiIndex({
                       )}
                     </Link>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </section>

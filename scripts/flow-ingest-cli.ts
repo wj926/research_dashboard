@@ -84,6 +84,13 @@ async function resolveLocalPath(project: { githubRepo: string | null; localPath:
   return derived;
 }
 
+type EventTone = 'milestone' | 'pivot' | 'result' | 'incident' | 'design' | 'deprecated';
+
+type TaskRef =
+  | { kind: 'existing'; id: number }                              // link to known TodoItem
+  | { kind: 'new'; bucket: 'short' | 'mid' | 'long'; title: string; goal?: string; group?: string; subtasks?: string[]; status?: 'pending' | 'in_progress' | 'done' }
+  | null;                                                         // uncategorized (rare; LLM should almost always pick or create)
+
 type ApplyPayload = {
   projectSlug: string;
   event: {
@@ -91,12 +98,12 @@ type ApplyPayload = {
     source: string;
     title: string;
     summary: string;
-    tone: 'milestone' | 'pivot' | 'result' | 'incident' | 'design';
+    tone: EventTone;
     bullets?: string[];
     numbers?: { label: string; value: string }[];
     tags?: string[];
   };
-  taskIds?: number[];          // links to TodoItem.id
+  task: TaskRef;
   overwrite?: boolean;         // re-apply even if event already exists
 };
 
@@ -242,7 +249,9 @@ async function cmdListNewProgress(slug: string, force: boolean) {
 // apply
 // =====================================================================
 
-const ALLOWED_TONES = new Set(['milestone', 'pivot', 'result', 'incident', 'design']);
+const ALLOWED_TONES = new Set(['milestone', 'pivot', 'result', 'incident', 'design', 'deprecated']);
+const ALLOWED_BUCKETS = new Set(['short', 'mid', 'long']);
+const ALLOWED_TASK_STATUSES = new Set(['pending', 'in_progress', 'done']);
 
 async function cmdApply(stdinJson: string) {
   let payload: ApplyPayload;
@@ -252,32 +261,88 @@ async function cmdApply(stdinJson: string) {
     throw new Error(`apply: stdin is not valid JSON`);
   }
 
-  const { projectSlug, event, taskIds = [], overwrite = false } = payload;
+  const { projectSlug, event, task, overwrite = false } = payload;
   if (!projectSlug) throw new Error('apply: projectSlug required');
   if (!event?.source) throw new Error('apply: event.source required');
   if (!event.title) throw new Error('apply: event.title required');
   if (!ALLOWED_TONES.has(event.tone)) {
     throw new Error(`apply: invalid tone "${event.tone}". Must be one of: ${[...ALLOWED_TONES].join(', ')}`);
   }
+  if (task !== null && task !== undefined) {
+    if (task.kind === 'existing') {
+      if (!Number.isFinite(task.id)) throw new Error('apply: task.id must be a number');
+    } else if (task.kind === 'new') {
+      if (!ALLOWED_BUCKETS.has(task.bucket)) {
+        throw new Error(`apply: task.bucket must be one of: ${[...ALLOWED_BUCKETS].join(', ')}`);
+      }
+      if (!task.title) throw new Error('apply: task.title required for new task');
+      if (task.status && !ALLOWED_TASK_STATUSES.has(task.status)) {
+        throw new Error(`apply: task.status must be one of: ${[...ALLOWED_TASK_STATUSES].join(', ')}`);
+      }
+    } else {
+      throw new Error('apply: task.kind must be "existing" or "new", or task = null');
+    }
+  }
 
   const prisma = newPrisma();
   try {
-    // Validate project + tasks exist
+    // Validate project exists
     const project = await prisma.project.findUnique({ where: { slug: projectSlug } });
     if (!project) throw new Error(`apply: project not found: ${projectSlug}`);
-    if (taskIds.length > 0) {
-      const found = await prisma.todoItem.findMany({
-        where: { projectSlug, id: { in: taskIds } },
+
+    // Resolve task to a single todoId (existing or newly-created)
+    let resolvedTodoId: number | null = null;
+    let createdTask = false;
+    if (task && task.kind === 'existing') {
+      const exists = await prisma.todoItem.findFirst({
+        where: { projectSlug, id: task.id },
         select: { id: true },
       });
-      const foundIds = new Set(found.map(t => t.id));
-      const missing = taskIds.filter(id => !foundIds.has(id));
-      if (missing.length > 0) {
-        throw new Error(`apply: taskIds not found in this project: ${missing.join(', ')}`);
+      if (!exists) throw new Error(`apply: task.id ${task.id} not found in project ${projectSlug}`);
+      resolvedTodoId = task.id;
+    } else if (task && task.kind === 'new') {
+      const max = await prisma.todoItem.findFirst({
+        where: { projectSlug, bucket: task.bucket },
+        orderBy: { position: 'desc' },
+        select: { position: true },
+      });
+      const created = await prisma.todoItem.create({
+        data: {
+          projectSlug,
+          bucket: task.bucket,
+          text: task.title,
+          goal: task.goal ?? null,
+          group: task.group ?? null,
+          subtasks: task.subtasks && task.subtasks.length > 0 ? JSON.stringify(task.subtasks) : null,
+          status: task.status ?? 'in_progress',
+          done: task.status === 'done',
+          position: (max?.position ?? -1) + 1,
+        },
+      });
+      resolvedTodoId = created.id;
+      createdTask = true;
+    }
+
+    // Optionally clear all existing events for this source (re-ingest mode).
+    // If overwrite=true and there are events for this source, delete them all
+    // first (and their LLM-source task links). Manual links survive on the
+    // event cascade since FlowEventTaskLink.eventSource references the
+    // string, not the event ID — but the next ingest will re-create them
+    // from the LLM extraction.
+    if (overwrite) {
+      const existingForSource = await prisma.flowEvent.findMany({
+        where: { projectSlug, source: event.source },
+        select: { id: true },
+      });
+      if (existingForSource.length > 0) {
+        // FlowEventTaskLink cascades on flowEvent delete (onDelete: Cascade)
+        await prisma.flowEvent.deleteMany({
+          where: { projectSlug, source: event.source },
+        });
       }
     }
 
-    // Determine next position
+    // Determine next position (events are ordered globally for the project).
     const max = await prisma.flowEvent.findFirst({
       where: { projectSlug },
       orderBy: { position: 'desc' },
@@ -285,57 +350,29 @@ async function cmdApply(stdinJson: string) {
     });
     const nextPos = (max?.position ?? -1) + 1;
 
-    // Upsert event
-    const existing = await prisma.flowEvent.findUnique({
-      where: { projectSlug_source: { projectSlug, source: event.source } },
+    const saved = await prisma.flowEvent.create({
+      data: {
+        projectSlug,
+        date: event.date,
+        source: event.source,
+        title: event.title,
+        summary: event.summary,
+        tone: event.tone,
+        bullets: event.bullets ? JSON.stringify(event.bullets) : null,
+        numbers: event.numbers ? JSON.stringify(event.numbers) : null,
+        tags: event.tags ? JSON.stringify(event.tags) : null,
+        position: nextPos,
+      },
     });
-    if (existing && !overwrite) {
-      throw new Error(`apply: event already exists for source "${event.source}". Pass overwrite:true to replace.`);
-    }
 
-    let saved;
-    if (existing) {
-      saved = await prisma.flowEvent.update({
-        where: { id: existing.id },
-        data: {
-          date: event.date,
-          title: event.title,
-          summary: event.summary,
-          tone: event.tone,
-          bullets: event.bullets ? JSON.stringify(event.bullets) : null,
-          numbers: event.numbers ? JSON.stringify(event.numbers) : null,
-          tags: event.tags ? JSON.stringify(event.tags) : null,
-        },
-      });
-      // Wipe existing LLM-source links so we re-apply (preserve manual)
-      await prisma.flowEventTaskLink.deleteMany({
-        where: { projectSlug, eventSource: event.source, source: 'llm' },
-      });
-    } else {
-      saved = await prisma.flowEvent.create({
-        data: {
-          projectSlug,
-          date: event.date,
-          source: event.source,
-          title: event.title,
-          summary: event.summary,
-          tone: event.tone,
-          bullets: event.bullets ? JSON.stringify(event.bullets) : null,
-          numbers: event.numbers ? JSON.stringify(event.numbers) : null,
-          tags: event.tags ? JSON.stringify(event.tags) : null,
-          position: nextPos,
-        },
-      });
-    }
-
-    // Insert task links (LLM source)
-    let linkCount = 0;
-    for (const tid of taskIds) {
+    // Insert single task link (LLM source) if a task was resolved
+    let linkCreated = false;
+    if (resolvedTodoId !== null) {
       try {
         await prisma.flowEventTaskLink.create({
-          data: { projectSlug, eventSource: event.source, todoId: tid, source: 'llm' },
+          data: { projectSlug, flowEventId: saved.id, todoId: resolvedTodoId, source: 'llm' },
         });
-        linkCount += 1;
+        linkCreated = true;
       } catch {
         // unique constraint hit (already linked from manual side) — fine
       }
@@ -344,8 +381,10 @@ async function cmdApply(stdinJson: string) {
     console.log(JSON.stringify({
       ok: true,
       eventId: saved.id,
-      mode: existing ? 'updated' : 'created',
-      taskLinks: linkCount,
+      mode: 'created',
+      taskId: resolvedTodoId,
+      taskCreated: createdTask,
+      linkCreated,
     }, null, 2));
   } finally {
     await prisma.$disconnect();

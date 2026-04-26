@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/cn';
 import { LabelChip, type LabelTone } from '@/components/badges/LabelChip';
 import { MarkdownBody } from '@/components/md/MarkdownBody';
+import { newnessFromString } from '@/components/flow/task-kanban-helpers';
 import {
   type FlowEvent,
   type FlowEventTone,
@@ -24,11 +25,12 @@ import {
 
 export function eventTone(tone: FlowEventTone): { ring: string; chip: LabelTone; label: string } {
   switch (tone) {
-    case 'milestone': return { ring: 'border-accent-fg',     chip: 'accent',    label: '마일스톤' };
-    case 'pivot':     return { ring: 'border-attention-fg',  chip: 'attention', label: '피벗' };
-    case 'result':    return { ring: 'border-success-fg',    chip: 'success',   label: '결과' };
-    case 'incident':  return { ring: 'border-danger-fg',     chip: 'danger',    label: '인시던트' };
-    case 'design':    return { ring: 'border-done-fg',       chip: 'done',      label: '설계' };
+    case 'milestone':  return { ring: 'border-accent-fg',     chip: 'accent',    label: '마일스톤' };
+    case 'pivot':      return { ring: 'border-attention-fg',  chip: 'attention', label: '피벗' };
+    case 'result':     return { ring: 'border-success-fg',    chip: 'success',   label: '결과' };
+    case 'incident':   return { ring: 'border-danger-fg',     chip: 'danger',    label: '인시던트' };
+    case 'design':     return { ring: 'border-done-fg',       chip: 'done',      label: '설계' };
+    case 'deprecated': return { ring: 'border-fg-muted',      chip: 'neutral',   label: '폐기' };
   }
 }
 
@@ -82,6 +84,39 @@ export function tagGroupLabel(g: TagGroup): string {
   }
 }
 
+/**
+ * Escape angle-bracketed tokens that look like HTML tags but aren't valid HTML —
+ * markdown/HTML parsers silently strip these, breaking surrounding text.
+ *
+ * Patterns handled:
+ *   <|im_end|>, <|im_start|>     — chat template
+ *   <INFORMATION>, <TOOL_RETURNED_DATA>  — framework markers (uppercase tags)
+ *   <unknown>                    — literal placeholder seen in IPIGuard etc.
+ *
+ * Inline code (`<...>`) and fenced code blocks are protected first.
+ */
+export function escapeFrameworkTokens(md: string): string {
+  // Walk through, splitting on fenced code blocks so we don't escape within them.
+  const parts = md.split(/(```[\s\S]*?```)/g);
+  return parts
+    .map((part, i) => {
+      if (i % 2 === 1) return part; // inside fenced code, leave as-is
+      // Protect inline code spans next
+      const inline = part.split(/(`[^`\n]+`)/g);
+      return inline
+        .map((seg, j) => {
+          if (j % 2 === 1) return seg; // inside inline code
+          return seg
+            .replace(/<\|/g, '&lt;|')
+            .replace(/\|>/g, '|&gt;')
+            .replace(/<([A-Z][A-Z_0-9]*)>/g, '&lt;$1&gt;')
+            .replace(/<unknown>/g, '&lt;unknown&gt;');
+        })
+        .join('');
+    })
+    .join('');
+}
+
 function markerColor(kind: LifelineMarker['kind']): string {
   switch (kind) {
     case 'designed':   return 'bg-fg-muted';
@@ -98,8 +133,17 @@ function markerColor(kind: LifelineMarker['kind']): string {
 
 export function TimelineCard({ event }: { event: FlowEvent }) {
   const tone = eventTone(event.tone);
+  const newness = newnessFromString(event.date);
   return (
-    <div className="bg-white border border-border-default rounded-md p-4 pr-10">
+    <div className="relative bg-white border border-border-default rounded-md p-4 pr-10">
+      {newness > 0 && (
+        <span
+          className="absolute top-1 left-1 bg-danger-fg text-white text-[9px] font-semibold px-1 py-px rounded-full shadow-sm leading-none z-10"
+          style={{ opacity: newness }}
+        >
+          New!
+        </span>
+      )}
       <div className="flex items-center gap-2 text-xs text-fg-muted mb-1 flex-wrap">
         <span className="font-mono">{event.date}</span>
         <LabelChip tone={tone.chip}>{tone.label}</LabelChip>
@@ -128,7 +172,7 @@ export function TimelineCard({ event }: { event: FlowEvent }) {
             <span>원본 progress.md 보기 ({event.source})</span>
           </summary>
           <div className="mt-3 max-h-[600px] overflow-y-auto bg-canvas-subtle rounded p-4">
-            <MarkdownBody source={event.sourceContent} size="sm" />
+            <MarkdownBody source={escapeFrameworkTokens(event.sourceContent)} size="sm" />
           </div>
         </details>
       )}
@@ -146,7 +190,7 @@ function TimelineList({ events }: { events: FlowEvent[] }) {
         const tone = eventTone(e.tone);
         return (
           <li key={e.source} className="relative">
-            <span className={`absolute -left-[34px] top-1.5 w-3 h-3 rounded-full bg-white border-2 ${tone.ring}`} />
+            <span className={`absolute -left-[30px] top-4 w-3 h-3 rounded-full bg-white border-2 ${tone.ring}`} />
             <TimelineCard event={e} />
           </li>
         );

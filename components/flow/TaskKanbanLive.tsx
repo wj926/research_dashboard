@@ -9,7 +9,21 @@
 //
 // Server-rendered. Forms post to server actions in lib/actions/flow-tasks.ts.
 
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  DragOverlay,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { cn } from '@/lib/cn';
 import { LabelChip, type LabelTone } from '@/components/badges/LabelChip';
 import { PencilIcon, PlusIcon, TrashIcon, XIcon } from '@primer/octicons-react';
@@ -33,71 +47,20 @@ import {
   unlinkEventFromTaskAction,
   updateFlowEventAction,
   deleteFlowEventAction,
+  addFlowEventCommentAction,
+  deleteFlowEventCommentAction,
+  setTaskGroupAction,
 } from '@/lib/actions/flow-tasks';
+import { RefreshFromGitButton } from '@/components/flow/RefreshFromGitButton';
 
-export type LiveTask = {
-  id: number;
-  bucket: TaskBucket;
-  title: string;
-  goal: string | null;
-  subtasks: string[];          // parsed
-  status: TaskStatus;
-  isNew: boolean;              // computed (latest event date >= cutoff)
-  latestDate: string;          // computed
-  eventCount: number;          // computed
-};
-
-export type EventLink = {
-  id: number;
-  eventSource: string;
-  todoId: number;
-  source: string;              // 'llm' | 'manual'
-};
+// Re-export shared types/helpers for downstream consumers (some pages still
+// import from this module directly). The actual definitions live in the
+// server-safe helpers module.
+export type { LiveTask, EventLink, EventComment } from '@/components/flow/task-kanban-helpers';
+export { buildLiveTasks } from '@/components/flow/task-kanban-helpers';
+import type { LiveTask, EventLink, EventComment } from '@/components/flow/task-kanban-helpers';
 
 const BUCKETS: TaskBucket[] = ['short', 'mid', 'long'];
-
-function parseSubtasks(raw: string | null): string[] {
-  if (!raw) return [];
-  try {
-    const v = JSON.parse(raw);
-    if (Array.isArray(v)) return v.map(String);
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
-const NEW_CUTOFF = '2026-04-25 00:00';
-
-export function buildLiveTasks(
-  rawTasks: { id: number; bucket: string; text: string; goal: string | null; subtasks: string | null; status: string }[],
-  links: EventLink[],
-  events: FlowEvent[],
-): LiveTask[] {
-  const linksByTask = new Map<number, string[]>();
-  for (const l of links) {
-    if (!linksByTask.has(l.todoId)) linksByTask.set(l.todoId, []);
-    linksByTask.get(l.todoId)!.push(l.eventSource);
-  }
-  const eventByKey = new Map(events.map(e => [e.source, e]));
-
-  return rawTasks.map(t => {
-    const sources = linksByTask.get(t.id) ?? [];
-    const taskEvents = sources.map(s => eventByKey.get(s)).filter(Boolean) as FlowEvent[];
-    const latestDate = taskEvents.reduce<string>((a, e) => (e.date > a ? e.date : a), '');
-    return {
-      id: t.id,
-      bucket: t.bucket as TaskBucket,
-      title: t.text,
-      goal: t.goal,
-      subtasks: parseSubtasks(t.subtasks),
-      status: (t.status as TaskStatus) ?? 'in_progress',
-      isNew: latestDate > NEW_CUTOFF,
-      latestDate,
-      eventCount: taskEvents.length,
-    };
-  });
-}
 
 // =====================================================================
 // Forms
@@ -106,15 +69,19 @@ export function buildLiveTasks(
 function TaskFormFields({
   defaultTitle,
   defaultGoal,
+  defaultGroup,
   defaultSubtasks,
   defaultStatus,
   defaultBucket,
+  knownGroups,
 }: {
   defaultTitle?: string;
   defaultGoal?: string | null;
+  defaultGroup?: string | null;
   defaultSubtasks?: string[];
   defaultStatus?: TaskStatus;
   defaultBucket?: TaskBucket;
+  knownGroups: string[];
 }) {
   return (
     <div className="space-y-3">
@@ -147,6 +114,19 @@ function TaskFormFields({
         </div>
       </div>
       <div>
+        <label className="block text-[11px] uppercase tracking-wider text-fg-muted font-semibold mb-1">Group (epic / 큰 묶음, 선택)</label>
+        <input
+          name="group"
+          defaultValue={defaultGroup ?? ''}
+          list="known-groups"
+          className="w-full bg-white border border-border-default rounded px-2 py-1.5 text-sm"
+          placeholder="예: MELON 우회 공격 탐색"
+        />
+        <datalist id="known-groups">
+          {knownGroups.map(g => <option key={g} value={g} />)}
+        </datalist>
+      </div>
+      <div>
         <label className="block text-[11px] uppercase tracking-wider text-fg-muted font-semibold mb-1">Goal (1줄 설명, 선택)</label>
         <input
           name="goal"
@@ -173,17 +153,21 @@ function AddTaskForm({
   slug,
   bucket,
   onCancelHref,
+  knownGroups,
+  defaultGroup,
 }: {
   slug: string;
   bucket: TaskBucket;
   onCancelHref: string;
+  knownGroups: string[];
+  defaultGroup?: string;
 }) {
   return (
     <form action={createTaskAction} className="bg-white border-2 border-accent-fg rounded-md p-3 space-y-3">
       <input type="hidden" name="projectSlug" value={slug} />
-      <input type="hidden" name="redirectTo" value={`/projects/${slug}/flow/j`} />
+      <input type="hidden" name="redirectTo" value={`/projects/${slug}/flow`} />
       <div className="text-[11px] uppercase tracking-wider text-accent-fg font-semibold">{bucketLabel(bucket)}에 task 추가</div>
-      <TaskFormFields defaultBucket={bucket} />
+      <TaskFormFields defaultBucket={bucket} knownGroups={knownGroups} defaultGroup={defaultGroup} />
       <div className="flex justify-end gap-2 pt-1">
         <Link href={onCancelHref} className="px-3 py-1 text-xs border border-border-default rounded hover:bg-canvas-subtle">취소</Link>
         <button type="submit" className="px-3 py-1 text-xs bg-accent-fg text-white rounded hover:opacity-90">추가</button>
@@ -196,23 +180,27 @@ function EditTaskForm({
   slug,
   task,
   onCancelHref,
+  knownGroups,
 }: {
   slug: string;
   task: LiveTask;
   onCancelHref: string;
+  knownGroups: string[];
 }) {
   return (
     <form action={updateTaskAction} className="bg-white border-2 border-accent-fg rounded-md p-3 space-y-3">
       <input type="hidden" name="id" value={task.id} />
       <input type="hidden" name="projectSlug" value={slug} />
-      <input type="hidden" name="redirectTo" value={`/projects/${slug}/flow/j`} />
+      <input type="hidden" name="redirectTo" value={`/projects/${slug}/flow`} />
       <div className="text-[11px] uppercase tracking-wider text-accent-fg font-semibold">Task 수정</div>
       <TaskFormFields
         defaultTitle={task.title}
         defaultGoal={task.goal}
+        defaultGroup={task.group}
         defaultSubtasks={task.subtasks}
         defaultStatus={task.status}
         defaultBucket={task.bucket}
+        knownGroups={knownGroups}
       />
       <div className="flex items-center pt-1">
         <form action={deleteTaskAction} className="contents">
@@ -240,6 +228,33 @@ function EditTaskForm({
 // Task card (compact, with edit affordance)
 // =====================================================================
 
+function DroppableGroupSection({
+  bucket,
+  group,
+  enableDrop,
+  children,
+}: {
+  bucket: TaskBucket;
+  group: string | null;
+  enableDrop: boolean;
+  children: React.ReactNode;
+}) {
+  const id = `drop-${bucket}-${group ?? '__ungrouped__'}`;
+  const { setNodeRef, isOver } = useDroppable({ id, disabled: !enableDrop });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'rounded-md transition-colors',
+        enableDrop && 'p-1.5 -m-1.5',
+        isOver && 'bg-accent-subtle ring-2 ring-accent-fg/40',
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 function TaskCard({
   task,
   slug,
@@ -247,6 +262,7 @@ function TaskCard({
   selectHref,
   editHref,
   showEditAffordance,
+  enableDrag,
 }: {
   task: LiveTask;
   slug: string;
@@ -254,9 +270,19 @@ function TaskCard({
   selectHref: string;
   editHref: string;
   showEditAffordance: boolean;
+  enableDrag: boolean;
 }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `task-${task.id}`,
+    data: { taskId: task.id, currentGroup: task.group, bucket: task.bucket },
+    disabled: !enableDrag,
+  });
+
   return (
-    <div className="relative">
+    <div
+      ref={setNodeRef}
+      className={cn('relative', isDragging && 'opacity-30')}
+    >
       <Link
         href={selectHref + '#filtered'}
         className={cn(
@@ -264,10 +290,16 @@ function TaskCard({
           isActive
             ? 'border-accent-fg ring-2 ring-accent-fg/30'
             : 'border-border-default hover:border-accent-fg',
+          enableDrag && 'cursor-move',
         )}
+        {...(enableDrag ? listeners : {})}
+        {...(enableDrag ? attributes : {})}
       >
-        {task.isNew && (
-          <span className="absolute -top-1 -right-1 bg-danger-fg text-white text-[9px] font-semibold px-1 py-px rounded-full shadow-sm leading-none">
+        {task.newness > 0 && (
+          <span
+            className="absolute top-1 right-1 bg-danger-fg text-white text-[9px] font-semibold px-1 py-px rounded-full shadow-sm leading-none"
+            style={{ opacity: task.newness }}
+          >
             New!
           </span>
         )}
@@ -285,7 +317,7 @@ function TaskCard({
         </div>
         {task.subtasks.length > 0 ? (
           <ul className="text-[11px] text-fg-muted leading-snug list-none pl-3.5 mt-0.5 space-y-0.5">
-            {task.subtasks.map((s, i) => (
+            {task.subtasks.slice(0, 2).map((s, i) => (
               <li key={i} className="truncate">· {s}</li>
             ))}
           </ul>
@@ -314,10 +346,14 @@ function EventEditForm({
   slug,
   event,
   onCancelHref,
+  allTasks,
+  currentTaskId,
 }: {
   slug: string;
   event: FlowEvent & { id: number };
   onCancelHref: string;
+  allTasks: LiveTask[];
+  currentTaskId: number | null;
 }) {
   const numbersText = (event.numbers ?? []).map(n => `${n.label}: ${n.value}`).join('\n');
   const bulletsText = (event.bullets ?? []).join('\n');
@@ -327,6 +363,24 @@ function EventEditForm({
       <input type="hidden" name="projectSlug" value={slug} />
       <input type="hidden" name="redirectTo" value={onCancelHref} />
       <div className="text-[11px] uppercase tracking-wider text-accent-fg font-semibold">Event 수정</div>
+      <div>
+        <label className="block text-[11px] uppercase tracking-wider text-fg-muted font-semibold mb-1">Linked task</label>
+        <select
+          name="taskId"
+          defaultValue={currentTaskId !== null ? String(currentTaskId) : ''}
+          className="w-full bg-white border border-border-default rounded px-2 py-1.5 text-sm"
+        >
+          <option value="">(없음 / 분류 안 함)</option>
+          {allTasks.map(t => (
+            <option key={t.id} value={t.id}>
+              [{t.bucket}] {t.group ? `${t.group} / ` : ''}{t.title} (id={t.id})
+            </option>
+          ))}
+        </select>
+        <p className="text-[10px] text-fg-muted mt-1">
+          저장 시 기존 link 모두 제거 후 이 task 로 manual link 1개만 남김.
+        </p>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-[11px] uppercase tracking-wider text-fg-muted font-semibold mb-1">Date</label>
@@ -407,12 +461,14 @@ function EventEditForm({
   );
 }
 
+
 function EventCardWithLinks({
   event,
   eventId,
   slug,
   allTasks,
   links,
+  comments,
   editHref,
   showEditAffordance,
   showLinkEditing,
@@ -422,12 +478,13 @@ function EventCardWithLinks({
   slug: string;
   allTasks: LiveTask[];
   links: EventLink[];
+  comments: EventComment[];
   editHref: string;
   showEditAffordance: boolean;   // pencil for editing event content
   showLinkEditing: boolean;      // X / + for adding/removing task links
 }) {
   const tasksById = new Map(allTasks.map(t => [t.id, t]));
-  const eventLinks = links.filter(l => l.eventSource === event.source);
+  const eventLinks = links.filter(l => l.flowEventId === eventId);
   const assignedIds = new Set(eventLinks.map(l => l.todoId));
   const unassigned = allTasks.filter(t => !assignedIds.has(t.id));
 
@@ -470,7 +527,7 @@ function EventCardWithLinks({
                 {showLinkEditing && (
                   <form action={unlinkEventFromTaskAction} className="contents">
                     <input type="hidden" name="projectSlug" value={slug} />
-                    <input type="hidden" name="eventSource" value={event.source} />
+                    <input type="hidden" name="flowEventId" value={eventId} />
                     <input type="hidden" name="todoId" value={t.id} />
                     <button type="submit" aria-label="Unlink" className="text-fg-muted hover:text-danger-fg ml-0.5">
                       <XIcon size={10} />
@@ -483,7 +540,7 @@ function EventCardWithLinks({
           {showLinkEditing && unassigned.length > 0 && (
             <form action={linkEventToTaskAction} className="inline-flex items-center gap-1">
               <input type="hidden" name="projectSlug" value={slug} />
-              <input type="hidden" name="eventSource" value={event.source} />
+              <input type="hidden" name="flowEventId" value={eventId} />
               <select
                 name="todoId"
                 defaultValue=""
@@ -499,6 +556,61 @@ function EventCardWithLinks({
           )}
         </div>
       </div>
+      {/* Comments — anyone can ask questions inline */}
+      <details className="bg-white border border-border-muted border-t-0 rounded-b-md px-3 py-2 -mt-1 group" {...(comments.length > 0 ? { open: true } : {})}>
+        <summary className="text-xs text-fg-muted cursor-pointer hover:text-accent-fg select-none list-none flex items-center gap-1">
+          <span className="inline-block transition-transform group-open:rotate-90">▶</span>
+          <span>💬 댓글 {comments.length > 0 && `(${comments.length})`}</span>
+        </summary>
+        <div className="mt-3 space-y-3">
+          {comments.length === 0 ? (
+            <div className="text-xs text-fg-muted italic">아직 댓글 없음. 첫 질문 남기기.</div>
+          ) : (
+            <ul className="list-none pl-0 space-y-2">
+              {comments.map(c => (
+                <li key={c.id} className="bg-canvas-subtle rounded p-2.5 text-sm">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="font-mono text-xs text-fg-default font-semibold">
+                      @{c.authorLogin ?? 'anonymous'}
+                    </span>
+                    <span className="font-mono text-[10px] text-fg-muted">
+                      {new Date(c.createdAt).toLocaleString('ko-KR')}
+                    </span>
+                    <form action={deleteFlowEventCommentAction} className="contents">
+                      <input type="hidden" name="id" value={c.id} />
+                      <input type="hidden" name="projectSlug" value={slug} />
+                      <button
+                        type="submit"
+                        className="ml-auto text-[10px] text-fg-muted hover:text-danger-fg"
+                        aria-label="Delete comment"
+                      >
+                        삭제
+                      </button>
+                    </form>
+                  </div>
+                  <div className="text-fg-default whitespace-pre-wrap leading-relaxed">{c.body}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={addFlowEventCommentAction} className="space-y-1.5">
+            <input type="hidden" name="projectSlug" value={slug} />
+            <input type="hidden" name="flowEventId" value={eventId} />
+            <textarea
+              name="body"
+              required
+              rows={2}
+              placeholder="질문이나 메모..."
+              className="w-full bg-white border border-border-default rounded px-2 py-1.5 text-sm leading-relaxed"
+            />
+            <div className="flex justify-end">
+              <button type="submit" className="text-xs px-3 py-1 bg-accent-fg text-white rounded hover:opacity-90">
+                댓글 달기
+              </button>
+            </div>
+          </form>
+        </div>
+      </details>
     </div>
   );
 }
@@ -513,6 +625,7 @@ export function TaskKanbanLive({
   links,
   events,
   eventIdBySource,
+  commentsByEventId,
   selectedTaskId,
   addTaskBucket,
   editTaskId,
@@ -523,7 +636,8 @@ export function TaskKanbanLive({
   tasks: LiveTask[];
   links: EventLink[];
   events: FlowEvent[];
-  eventIdBySource: Map<string, number>;  // FlowEvent.source → FlowEvent.id
+  eventIdBySource: Record<string, number>;  // FlowEvent.source → FlowEvent.id
+  commentsByEventId: Record<number, EventComment[]>;
   selectedTaskId?: number;
   addTaskBucket?: TaskBucket;
   editTaskId?: number;
@@ -543,21 +657,73 @@ export function TaskKanbanLive({
   for (const b of BUCKETS) byBucket.set(b, []);
   for (const t of tasks) byBucket.get(t.bucket)?.push(t);
 
-  // Filter events by selected task (using DB links).
-  const linksByEvent = new Map<string, EventLink[]>();
+  // Filter events by selected task (using DB links keyed by event id).
+  const linksByEvent = new Map<number, EventLink[]>();
   for (const l of links) {
-    if (!linksByEvent.has(l.eventSource)) linksByEvent.set(l.eventSource, []);
-    linksByEvent.get(l.eventSource)!.push(l);
+    if (!linksByEvent.has(l.flowEventId)) linksByEvent.set(l.flowEventId, []);
+    linksByEvent.get(l.flowEventId)!.push(l);
   }
   const filteredEvents = selectedTaskId
-    ? events.filter(e => (linksByEvent.get(e.source) ?? []).some(l => l.todoId === selectedTaskId))
+    ? events.filter(e => e.id !== undefined && (linksByEvent.get(e.id) ?? []).some(l => l.todoId === selectedTaskId))
     : events;
   const selectedTask = selectedTaskId ? tasks.find(t => t.id === selectedTaskId) : undefined;
 
+  // All groups across all buckets (for datalist autocomplete in forms)
+  const allGroups = Array.from(new Set(tasks.map(t => t.group).filter((g): g is string => Boolean(g)))).sort();
+
+  // ---- DnD state ----
+  const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+  const activeTask = activeTaskId ? tasks.find(t => t.id === activeTaskId) : undefined;
+
+  function onDragStart(e: DragStartEvent) {
+    const tid = e.active.data.current?.taskId;
+    if (typeof tid === 'number') setActiveTaskId(tid);
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    setActiveTaskId(null);
+    const overId = e.over?.id;
+    if (!overId || typeof overId !== 'string') return;
+    const m = overId.match(/^drop-(short|mid|long)-(.+)$/);
+    if (!m) return;
+    const targetGroup = m[2] === '__ungrouped__' ? '' : m[2];
+    const taskId = e.active.data.current?.taskId;
+    const currentGroup = e.active.data.current?.currentGroup ?? null;
+    if (typeof taskId !== 'number') return;
+    // No-op if same group
+    if ((currentGroup ?? '') === targetGroup) return;
+
+    const fd = new FormData();
+    fd.set('id', String(taskId));
+    fd.set('projectSlug', slug);
+    fd.set('group', targetGroup);
+    setTaskGroupAction(fd);
+  }
+
+  // Helper: group tasks within a bucket by .group (preserve insertion order, ungrouped last)
+  function groupTasks(list: LiveTask[]): { group: string | null; items: LiveTask[] }[] {
+    const map = new Map<string | null, LiveTask[]>();
+    for (const t of list) {
+      const g = t.group;
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(t);
+    }
+    const named = [...map.entries()].filter(([g]) => g !== null) as [string, LiveTask[]][];
+    const ungrouped = map.get(null) ?? [];
+    return [
+      ...named.map(([g, items]) => ({ group: g as string | null, items })),
+      ...(ungrouped.length > 0 ? [{ group: null as string | null, items: ungrouped }] : []),
+    ];
+  }
+
   return (
     <div className="space-y-6">
-      {/* Top-right edit mode toggle */}
-      <div className="flex items-center justify-end -mb-2">
+      {/* Top-right: refresh from git + edit mode toggle */}
+      <div className="flex items-start justify-end gap-2 -mb-2">
+        <RefreshFromGitButton slug={slug} />
         <Link
           href={urlWithEdit(!editMode)}
           className={cn(
@@ -572,10 +738,12 @@ export function TaskKanbanLive({
         </Link>
       </div>
 
-      {/* Top: 3-column kanban */}
+      {/* Top: 3-column kanban (with DnD context for re-grouping in edit mode) */}
+      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BUCKETS.map(b => {
           const list = byBucket.get(b) ?? [];
+          const grouped = groupTasks(list);
           return (
             <div key={b} className="bg-canvas-subtle rounded-md p-3">
               <div className="flex items-center justify-between mb-3 px-1">
@@ -592,51 +760,94 @@ export function TaskKanbanLive({
                   </Link>
                 )}
               </div>
-              <ul className="list-none pl-0 space-y-2">
-                {list.map(t => {
-                  const isActive = t.id === selectedTaskId;
-                  const selectHref = isActive
-                    ? baseHref
-                    : `${baseHref}?task=${t.id}`;
-                  const editHref = `${baseHref}?editTask=${t.id}${selectedTaskId ? `&task=${selectedTaskId}` : ''}`;
-                  if (editMode && editTaskId === t.id) {
-                    return (
-                      <li key={t.id}>
-                        <EditTaskForm
-                          slug={slug}
-                          task={t}
-                          onCancelHref={`${baseHref}?${selectedTaskId ? `task=${selectedTaskId}&` : ''}edit=1`}
-                        />
-                      </li>
-                    );
-                  }
-                  return (
-                    <li key={t.id}>
-                      <TaskCard
-                        task={t}
-                        slug={slug}
-                        isActive={isActive}
-                        selectHref={selectHref}
-                        editHref={`${editHref}&edit=1`}
-                        showEditAffordance={editMode}
-                      />
-                    </li>
-                  );
-                })}
+
+              {/* Render each group as a collapsible sub-section, then ungrouped */}
+              <div className="space-y-3">
+                {grouped.map(({ group, items }) => (
+                  <DroppableGroupSection
+                    key={group ?? '__ungrouped__'}
+                    bucket={b}
+                    group={group}
+                    enableDrop={editMode}
+                  >
+                    <details open className="group/grp">
+                      {group !== null ? (
+                        <summary className="cursor-pointer list-none flex items-center gap-1 text-[11px] font-semibold text-fg-default mb-1.5 pl-0.5 select-none">
+                          <span className="inline-block transition-transform group-open/grp:rotate-90 text-fg-muted">▶</span>
+                          <span>{group}</span>
+                          <span className="text-fg-muted font-normal">{items.length}</span>
+                        </summary>
+                      ) : (
+                        <summary className="cursor-pointer list-none text-[10px] uppercase tracking-wider text-fg-muted/70 italic mb-1.5 pl-0.5 select-none">
+                          그룹 없음 ({items.length})
+                        </summary>
+                      )}
+                    <ul className="list-none pl-0 space-y-2 min-h-[8px]">
+                      {items.map(t => {
+                        const isActive = t.id === selectedTaskId;
+                        const selectHref = isActive ? baseHref : `${baseHref}?task=${t.id}`;
+                        const editHref = `${baseHref}?editTask=${t.id}${selectedTaskId ? `&task=${selectedTaskId}` : ''}`;
+                        if (editMode && editTaskId === t.id) {
+                          return (
+                            <li key={t.id}>
+                              <EditTaskForm
+                                slug={slug}
+                                task={t}
+                                onCancelHref={`${baseHref}?${selectedTaskId ? `task=${selectedTaskId}&` : ''}edit=1`}
+                                knownGroups={allGroups}
+                              />
+                            </li>
+                          );
+                        }
+                        return (
+                          <li key={t.id}>
+                            <TaskCard
+                              task={t}
+                              slug={slug}
+                              isActive={isActive}
+                              selectHref={selectHref}
+                              editHref={`${editHref}&edit=1`}
+                              showEditAffordance={editMode}
+                              enableDrag={editMode}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    </details>
+                  </DroppableGroupSection>
+                ))}
                 {editMode && addTaskBucket === b && (
-                  <li>
+                  <div>
                     <AddTaskForm
                       slug={slug}
                       bucket={b}
                       onCancelHref={`${baseHref}?${selectedTaskId ? `task=${selectedTaskId}&` : ''}edit=1`}
+                      knownGroups={allGroups}
                     />
-                  </li>
+                  </div>
                 )}
-              </ul>
+              </div>
             </div>
           );
         })}
       </div>
+      <DragOverlay>
+        {activeTask ? (
+          <div className="bg-white border border-accent-fg ring-2 ring-accent-fg/30 rounded-md px-2.5 py-2 shadow-lg cursor-grabbing">
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                'inline-block w-1.5 h-1.5 rounded-full shrink-0',
+                activeTask.status === 'done' && 'bg-success-fg',
+                activeTask.status === 'in_progress' && 'bg-attention-fg',
+                activeTask.status === 'pending' && 'bg-fg-muted',
+              )} />
+              <span className="text-sm font-semibold text-fg-default truncate">{activeTask.title}</span>
+            </div>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
 
       {/* Bottom: filtered timeline with re-assignment chips */}
       <div id="filtered" className="pt-2">
@@ -660,17 +871,23 @@ export function TaskKanbanLive({
           <ol className="relative border-l border-border-default pl-6 space-y-4 list-none">
             {filteredEvents.map(e => {
               const tone = eventTone(e.tone);
-              const eid = eventIdBySource.get(e.source);
+              const eid = eventIdBySource[e.source];
               const cancelHref = selectedTaskId ? `${baseHref}?task=${selectedTaskId}` : baseHref;
               const editHref = `${baseHref}?editEvent=${eid}${selectedTaskId ? `&task=${selectedTaskId}` : ''}`;
               const isEditing = eid !== undefined && eid === editEventId;
               return (
                 <li key={e.source} className="relative">
                   <span
-                    className={`absolute -left-[34px] top-1.5 w-3 h-3 rounded-full bg-white border-2 ${tone.ring}`}
+                    className={`absolute -left-[30px] top-4 w-3 h-3 rounded-full bg-white border-2 ${tone.ring}`}
                   />
                   {editMode && isEditing && eid !== undefined ? (
-                    <EventEditForm slug={slug} event={{ ...e, id: eid }} onCancelHref={cancelHref + (selectedTaskId ? '&edit=1' : '?edit=1')} />
+                    <EventEditForm
+                      slug={slug}
+                      event={{ ...e, id: eid }}
+                      onCancelHref={cancelHref + (selectedTaskId ? '&edit=1' : '?edit=1')}
+                      allTasks={tasks}
+                      currentTaskId={(linksByEvent.get(eid) ?? [])[0]?.todoId ?? null}
+                    />
                   ) : (
                     <EventCardWithLinks
                       event={e}
@@ -678,6 +895,7 @@ export function TaskKanbanLive({
                       slug={slug}
                       allTasks={tasks}
                       links={links}
+                      comments={(eid !== undefined && commentsByEventId[eid]) || []}
                       editHref={editHref + '&edit=1'}
                       showEditAffordance={editMode}
                       showLinkEditing={editMode}

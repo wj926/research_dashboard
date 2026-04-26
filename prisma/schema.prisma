@@ -357,6 +357,7 @@ model TodoItem {
   goal     String?  // 1줄 "왜"
   subtasks String?  // JSON array of strings
   status   String   @default("in_progress")  // 'pending' | 'in_progress' | 'done'
+  group    String?  // 큰 묶음 (epic) — Kanban 컬럼 안에서 sub-header 로 묶임. free-form string.
 
   project   Project             @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
   flowLinks FlowEventTaskLink[]
@@ -376,21 +377,38 @@ model FlowEvent {
   tags        String?  // JSON array of strings (tag ids)
   position    Int      @default(0)
 
-  project Project @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
-  @@unique([projectSlug, source])
+  project   Project             @relation(fields: [projectSlug], references: [slug], onDelete: Cascade)
+  comments  FlowEventComment[]
+  taskLinks FlowEventTaskLink[]
+  @@index([projectSlug, source])
   @@index([projectSlug, date])
 }
 
-// Flow event ↔ TodoItem 다대다 (LLM 분류 결과 + 사람 수정)
+// Inline comments on a FlowEvent — 다른 사용자가 그 event 에 직접 질문/메모
+model FlowEventComment {
+  id          Int      @id @default(autoincrement())
+  flowEventId Int
+  authorLogin String?  // nullable for anonymous (PUBLIC_MODE)
+  body        String
+  createdAt   DateTime @default(now())
+
+  flowEvent FlowEvent @relation(fields: [flowEventId], references: [id], onDelete: Cascade)
+  @@index([flowEventId, createdAt])
+}
+
+// Flow event ↔ TodoItem 다대다 (LLM 분류 결과 + 사람 수정).
+// 한 progress 파일에서 여러 event 로 분할 가능하므로 link 는 source(string) 가 아니라
+// flowEventId(number) 로 referencing.
 model FlowEventTaskLink {
   id          Int      @id @default(autoincrement())
   projectSlug String
-  eventSource String   // 현재는 FLOW_EVENTS mock 의 source 파일명. 향후 ResearchEntry.id 로 이전 가능.
+  flowEventId Int
   todoId      Int
   source      String   @default("manual")  // 'llm' | 'manual'
   createdAt   DateTime @default(now())
 
-  todo TodoItem @relation(fields: [todoId], references: [id], onDelete: Cascade)
-  @@unique([projectSlug, eventSource, todoId])
-  @@index([projectSlug, eventSource])
+  flowEvent FlowEvent @relation(fields: [flowEventId], references: [id], onDelete: Cascade)
+  todo      TodoItem  @relation(fields: [todoId], references: [id], onDelete: Cascade)
+  @@unique([flowEventId, todoId])
+  @@index([projectSlug])
 }

@@ -63,6 +63,24 @@ pnpm tsx scripts/flow-ingest-cli.ts list-new-progress --slug <SLUG>
 
 ### Step 5 — 각 새 progress 파일 LLM 추출 + apply
 
+**중요: 한 progress 파일 안에 별개 활동이 여러 개면 N 개 event 로 분할.**
+
+분할 기준:
+- 서로 다른 task / 연구 라인을 다루는 활동 (예: "공격 X 새 구현" + "다른 모델 4개 cross-eval")
+- tone 이 자연스럽게 다른 활동 (예: 한 progress 안에 result + design 동시에)
+- 본문에서 명확히 다른 섹션으로 구분되어 있음
+
+분할 안 하는 경우:
+- 같은 task 의 연속 (sweep 진행 → 완주 → 분석)
+- 한 활동의 부수 효과 (실험 + 거기서 나온 incident)
+
+분할 시 각 event 는:
+- 같은 source (progress 파일명) 공유
+- 다른 title / summary / tone / numbers / tags
+- 각자 독립적으로 task 매핑 (같은 task 일 수도, 다른 task 일 수도)
+
+각 event 마다 `apply` CLI 한 번 호출. (overwrite=false 로 둬서 누적, 이미 있는 source 라도 새 event 추가됨.)
+
 각 파일에 대해 반복:
 
 #### 5a. Read tool 로 본문 읽기
@@ -80,12 +98,14 @@ Read /home/dami/wj/Research/StealthyIPIAttack/progress/ys/progress_YYYYMMDD_HHMM
     "source": "progress_YYYYMMDD_HHMM.md",
     "title": "<짧은 제목, 한글 OK, 30자 안쪽>",
     "summary": "<2-3문장 요약>",
-    "tone": "milestone | result | pivot | design | incident",
+    "tone": "milestone | result | pivot | deprecated | design | incident",
     "bullets": ["<짧은 사실 1>", "<짧은 사실 2>", ...],
     "numbers": [{"label": "MELON ASR", "value": "0.305"}, ...],
     "tags": ["<tag-id>", ...]
   },
-  "taskIds": [<id>, <id>, ...],
+  "task": { "kind": "existing", "id": <todoId> }
+       OR { "kind": "new", "bucket": "short", "title": "<task 이름>", "goal": "<왜>", "subtasks": [], "status": "in_progress" }
+       OR null,
   "overwrite": false
 }
 ```
@@ -94,7 +114,8 @@ Read /home/dami/wj/Research/StealthyIPIAttack/progress/ys/progress_YYYYMMDD_HHMM
 
 - `milestone` — 셋업, 신규 도구 도입, 큰 변화의 시작 (예: "두 논문 트랙 셋업", "GPU 인프라 구축")
 - `result` — 완주된 실험의 결과 (예: "trigger × MELON 105/105 ASR 0.286")
-- `pivot` — 방향 전환, 가설 폐기 (예: "sysframe 폐기 → trigger_fake 설계")
+- `pivot` — 방향 전환 + 새 방향 명시 (예: "sysframe 폐기 → trigger_fake 설계")
+- `deprecated` — 방법 자체를 버림, 다음 방향 미정 (예: "transformer prober 가능성 없음 — 종료". `pivot` 과의 차이는 새 방향이 같은 progress 안에 없음)
 - `design` — 새 실험/공격/구조 설계 단계 (예: "5종 ablation 라운드 설계")
 - `incident` — 디버깅, 장애, 잘못 발견 후 수정 (예: "YAML 파싱 버그", "OOM")
 
@@ -128,20 +149,41 @@ Read /home/dami/wj/Research/StealthyIPIAttack/progress/ys/progress_YYYYMMDD_HHMM
 - paper: `paper:emnlp`, `paper:icml-ws`
 - 적합한 거 3-5개 선택. omit 가능.
 
-#### Task 매핑 (taskIds)
+#### Task 매핑 (정확히 1개 또는 새 task 생성)
 
-step 1 의 `tasks[]` 와 progress 본문을 비교. **이 progress 가 어느 task 들을 진척시키는가** 판단.
+**원칙**: 한 progress = 한 task 의 다음 진척. 학생이 보통 단기 라운드의 한 가지 일을 하고 progress 를 적기 때문.
 
-기준:
-- task title / goal / subtasks 에 언급된 것이 progress 에 등장하면 매핑
-- progress 가 한 task 만 다루는 경우도 있고 (1개), 여러 task 에 걸친 경우도 있음 (2-3개). 보통 **2-3개**가 적정.
-- 매핑 안 되는 task 는 빼기 (false positive 가 더 나쁨)
+step 1 의 `tasks[]` 와 progress 의 핵심 활동을 비교. **가장 잘 맞는 1 개** 의 task id 선택.
 
-예시 — progress 가 "5종 ablation 결과 + universal trigger 피벗" 이고 tasks 가:
-- `t-ablation-5` (5종 ablation × MELON 105 sweep) → ✅ 매핑 (직접 결과)
-- `t-universal-launch` (trigger_universal A/B 완주) → ✅ 매핑 (이번 progress 에서 런칭)
-- `t-emnlp-attack-decide` (EMNLP attack 섹션 최종안 결정) → ✅ 매핑 (이번 결정이 다음 단계 영향)
-- `t-arg-poisoning-poc` (IPIGuard argument poisoning PoC) → ❌ 무관
+선택 기준:
+- progress 의 핵심 작업이 task title / goal / subtasks 에 직접 언급됨
+- progress 가 그 task 의 **연속선상의 다음 step** 으로 읽힘
+- 여러 후보가 있으면 "이 progress 의 가장 큰 활동" 기준으로 1 개
+
+**기존 task 중 적합한 게 없으면** `{ "kind": "new", ... }` 로 새로 생성:
+- bucket: 보통 `short` (이번 라운드의 새 일). 명시적으로 큰 그림 (논문 섹션 결정, 분기 마감) 이면 `mid` 또는 `long`.
+- title: progress 핵심 활동의 한 문장 (예: "trigger_v3 implementation + 105 sweep")
+- goal: 1줄 "왜" (예: "trigger_v2 의 OOM 문제 해결을 위한 새 구조")
+- **group** (epic / 큰 묶음): step 1 의 `tasks[].group` 에서 같은 epic 이 이미 있으면 그 string 재사용. 없으면 새 group 만들기 가능 (보수적으로 — 이미 비슷한 게 있는지 먼저 보기).
+  - 예: 기존 task 들이 group="MELON 우회 공격 탐색" 인데 새 trigger 변종 task 만든다면 같은 group 재사용
+  - 예: 새 분야 (예: "Defense landscape 측정") 시작이면 새 group 만들기
+- **subtasks** (선택, 최대 2개): 이 task 가 **무엇을 하는 task 인지** 짧게 묘사. 목적 / 검증할 가설 / 큰 그림.
+  - ✅ 좋음: "repetition 횟수 단독으로 MELON 우회 가능한지 검증", "32b → 235b 전이성 측정"
+  - ❌ 나쁨: "qwen3:235b N=30 105/105 완주 ASR 0.711" (수치/진행사항 — 카드 아래 events 에서 자동으로 보임)
+  - ❌ 나쁨: "qwen3:32b N ∈ {10,20,30,40,50} 완주" (실험 plan 의 구체값 — events 에서 보임)
+  - ❌ 나쁨: 3개 이상 (UI 가 2개만 표시. 너무 많으면 큰 그림 안 보임)
+  - 1~2개로 task 의 "왜" "뭐를 알고 싶은지" 만 표현
+- status: 보통 `in_progress` (진행 중인 일이 progress 에 적힘). 완주된 결과면 `done`.
+
+**중요 — group 재사용 우선**: task 가 너무 잘게 쪼개져 단기 컬럼이 빽빽해지는 것을 막기 위해, **이미 있는 group 안에 새 task 를 넣는 것을 선호**. 새 group 은 정말 새 라인일 때만.
+
+예시 1 — progress 가 "5종 ablation 결과" + 기존에 "t-ablation-5" task 있음
+→ `{ "kind": "existing", "id": <t-ablation-5 id> }`
+
+예시 2 — progress 가 "trigger_v3 신규 설계 + 첫 런칭" + 기존 task 에 trigger_v3 무관
+→ `{ "kind": "new", "bucket": "short", "title": "trigger_v3 design + 105 sweep", "goal": "v2 의 OOM 해결 + universal gate 다음 시도", "status": "in_progress" }`
+
+**`task: null` 은 거의 안 씀** — uncategorized 가 많아지면 의미 없음. 정말 어디에도 안 맞고 새로 만들기도 애매할 때만 (예: lab admin 같은 이벤트).
 
 #### 5c. JSON 을 CLI 에 stdin 으로 전달
 
@@ -155,13 +197,13 @@ pnpm tsx scripts/flow-ingest-cli.ts apply <<'EOF'
 {
   "projectSlug": "ipi-attack",
   "event": { ... },
-  "taskIds": [13, 14, 16],
+  "task": { "kind": "existing", "id": 14 },
   "overwrite": false
 }
 EOF
 ```
 
-성공 응답 (JSON): `{"ok": true, "eventId": <id>, "mode": "created"|"updated", "taskLinks": <count>}`
+성공 응답 (JSON): `{"ok": true, "eventId": <id>, "mode": "created"|"updated", "taskId": <id|null>, "taskCreated": <bool>, "linkCreated": <bool>}`
 
 **실패 시** (예: 검증 에러, task ID 없음) 은 stderr 로 메시지 + exit 1. **그 progress 만 skip 하고 다음으로 진행**, 끝에 사용자에게 보고.
 
