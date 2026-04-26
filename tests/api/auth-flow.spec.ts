@@ -37,3 +37,33 @@ test('device exchange: missing github_access_token → 400 invalid_request', asy
   expect(res.status()).toBe(400);
   expect((await res.json()).error).toBe('invalid_request');
 });
+
+test('/api/me: missing bearer → 401 missing_token', async ({ request }) => {
+  const res = await request.get('/api/me');
+  expect(res.status()).toBe(401);
+  expect((await res.json()).error).toBe('missing_token');
+});
+
+test('/api/me: malformed bearer → 401 invalid_token', async ({ request }) => {
+  const res = await request.get('/api/me', {
+    headers: { Authorization: 'Bearer not-a-jwt' },
+  });
+  expect(res.status()).toBe(401);
+  expect((await res.json()).error).toBe('invalid_token');
+});
+
+test('/api/me: valid token → returns member', async ({ request }) => {
+  const exchange = await request.post('/api/auth/device/exchange', {
+    data: { github_access_token: 'test:testbot' },
+  });
+  const { token } = await exchange.json();
+
+  const res = await request.get('/api/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.status()).toBe(200);
+  const body = await res.json();
+  expect(body.login).toBe('testbot');
+  expect(body.role).toBe('PhD');
+  expect(body.displayName).toBeTruthy();
+});
