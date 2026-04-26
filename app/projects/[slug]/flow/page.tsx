@@ -1,68 +1,135 @@
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db';
+import { type FlowEvent, type TaskBucket } from '@/lib/mock/ipi-flow-data';
+import { TaskKanbanLive } from '@/components/flow/TaskKanbanLive';
+import { buildLiveTasks, type EventLink, type EventComment } from '@/components/flow/task-kanban-helpers';
 
-type OptionDef = {
-  key: string;
-  label: string;
-  title: string;
-  blurb: string;
-  whenUseful: string;
-};
+const PROGRESS_ROOT_FALLBACK = '/home/dami/wj/Research/StealthyIPIAttack/progress/ys';
 
-const OPTIONS: OptionDef[] = [
-  { key: 'a', label: 'Option A', title: 'Timeline + 카드',           blurb: '시간순 progress 카드 (가장 단순).', whenUseful: '이번 주 일지 정독' },
-  { key: 'd', label: 'Option D', title: 'Status board (Kanban)',       blurb: 'Designed/Running/Done/Deprecated 4 컬럼.', whenUseful: '운영 / GPU 할당 결정' },
-  { key: 'e', label: 'Option E', title: 'Phase 그룹 (챕터)',           blurb: '라운드별로 묶인 collapsible 챕터.', whenUseful: '한 달 회고' },
-  { key: 'g', label: 'Option G', title: 'Per-attack lifeline (일생)',  blurb: '공격 1개 = 가로 1줄. 디자인→완료/폐기 마커.', whenUseful: '"이거 왜 죽었지" 추적' },
-  { key: 'h', label: 'Option H', title: 'Task 그룹 (단기/중기/장기)',  blurb: '각 task 아래에 기여 events 가 펼쳐짐.', whenUseful: 'task 별 누적 진척 한눈에' },
-  { key: 'i', label: 'Option I', title: 'Tag filter (toggle)',         blurb: '위 태그 chip 클릭 → 아래 timeline 이 그 태그로 필터.', whenUseful: '"MELON bypass 관련 일만 모아서 보기"' },
-  { key: 'j', label: 'Option J', title: 'Task Kanban (New! 배지)',     blurb: '단기/중기/장기 3 컬럼 task Kanban. 최근 활동 있는 카드에 New! 배지.', whenUseful: '"이번 주 student 가 어떤 task 에서 진척 냈나" 한눈에 ★' },
-];
+async function enrichWithSource(events: FlowEvent[], localPath: string | null): Promise<FlowEvent[]> {
+  // Try multiple researcher subdirs under <localPath>/progress/<researcher>/
+  const root = localPath ? path.join(localPath, 'progress') : PROGRESS_ROOT_FALLBACK;
+  return Promise.all(
+    events.map(async e => {
+      // Try direct path first, then walk researcher subdirs.
+      try {
+        const direct = path.join(root, e.source);
+        const content = await fs.readFile(direct, 'utf8');
+        return { ...e, sourceContent: content };
+      } catch {
+        try {
+          const subs = await fs.readdir(root);
+          for (const s of subs) {
+            const sub = path.join(root, s, e.source);
+            try {
+              const content = await fs.readFile(sub, 'utf8');
+              return { ...e, sourceContent: content };
+            } catch { /* keep looking */ }
+          }
+        } catch { /* root missing */ }
+        return e;
+      }
+    }),
+  );
+}
 
-export default async function ProjectFlowIndex({
+export default async function ProjectFlowPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ task?: string; addTask?: string; editTask?: string; editEvent?: string; edit?: string }>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
+
   const project = await prisma.project.findUnique({ where: { slug } });
   if (!project) notFound();
 
-  if (slug !== 'ipi-attack') {
+  const [rawTasks, rawLinks, rawEvents, rawComments] = await Promise.all([
+    prisma.todoItem.findMany({
+      where: { projectSlug: slug },
+      orderBy: [{ bucket: 'asc' }, { position: 'asc' }],
+      select: { id: true, bucket: true, text: true, goal: true, group: true, subtasks: true, status: true },
+    }),
+    prisma.flowEventTaskLink.findMany({
+      where: { projectSlug: slug },
+      select: { id: true, flowEventId: true, todoId: true, source: true },
+    }),
+    prisma.flowEvent.findMany({
+      where: { projectSlug: slug },
+      orderBy: [{ date: 'desc' }, { position: 'desc' }],
+    }),
+    prisma.flowEventComment.findMany({
+      where: { flowEvent: { projectSlug: slug } },
+      orderBy: { createdAt: 'asc' },
+    }),
+  ]);
+
+  const commentsByEventId: Record<number, EventComment[]> = {};
+  for (const c of rawComments) {
+    if (!commentsByEventId[c.flowEventId]) commentsByEventId[c.flowEventId] = [];
+    commentsByEventId[c.flowEventId].push(c);
+  }
+
+  const links: EventLink[] = rawLinks;
+  const dbEvents: FlowEvent[] = rawEvents.map(r => ({
+    id: r.id,
+    date: r.date,
+    source: r.source,
+    title: r.title,
+    summary: r.summary,
+    tone: r.tone as FlowEvent['tone'],
+    bullets: r.bullets ? JSON.parse(r.bullets) : undefined,
+    numbers: r.numbers ? JSON.parse(r.numbers) : undefined,
+    tags: r.tags ? JSON.parse(r.tags) : undefined,
+  }));
+  const enrichedEvents = await enrichWithSource(dbEvents, project.localPath);
+  const eventIdBySource: Record<string, number> = {};
+  for (const r of rawEvents) eventIdBySource[r.source] = r.id;
+  const liveTasks = buildLiveTasks(rawTasks, links, enrichedEvents);
+
+  const selectedTaskId = sp.task ? Number(sp.task) : undefined;
+  const addTaskBucket = (sp.addTask === 'short' || sp.addTask === 'mid' || sp.addTask === 'long')
+    ? (sp.addTask as TaskBucket) : undefined;
+  const editTaskId = sp.editTask ? Number(sp.editTask) : undefined;
+  const editEventId = sp.editEvent ? Number(sp.editEvent) : undefined;
+  const editMode = sp.edit === '1' || Boolean(addTaskBucket) || Boolean(editTaskId) || Boolean(editEventId);
+
+  // Empty state — no tasks AND no events yet for this project.
+  if (rawTasks.length === 0 && rawEvents.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto py-6 text-sm text-fg-muted">
-        Flow view 는 현재 IPI Attack 프로젝트 mockup 데이터만 있습니다.
+      <div className="max-w-3xl mx-auto py-10 text-center space-y-4">
+        <p className="text-sm text-fg-muted">
+          이 프로젝트에 아직 task 도 event 도 없습니다.
+        </p>
+        <p className="text-sm text-fg-muted">
+          Claude Code 에서 <code className="bg-canvas-subtle px-1.5 py-0.5 rounded">labhub-flow-ingest {slug}</code> 또는
+          {' '}<code className="bg-canvas-subtle px-1.5 py-0.5 rounded">{slug} 의 progress 정리해줘</code> 라고 말해서 ingest 시작.
+        </p>
+        <p className="text-xs text-fg-muted">
+          또는 수동으로 task 를 만들려면 우상단 <Link href={`/projects/${slug}/flow?edit=1`} className="text-accent-fg hover:underline">수정 모드</Link>.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-2 space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Research Flow</h1>
-        <p className="text-sm text-fg-muted mt-1">
-          progress 파일에서 추출한 연구 흐름. 표현 후보 9개를 따로 따로 봐주세요 — 어느 게 가장 잘 잡히는지 선택.
-        </p>
-      </header>
-
-      <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 list-none pl-0">
-        {OPTIONS.map(o => (
-          <li key={o.key}>
-            <Link
-              href={`/projects/${slug}/flow/${o.key}`}
-              className="block bg-white border border-border-default rounded-md p-4 hover:border-accent-fg hover:bg-canvas-subtle transition-colors h-full"
-            >
-              <div className="text-[11px] uppercase tracking-wider text-fg-muted font-semibold">{o.label}</div>
-              <div className="text-base font-semibold mt-1">{o.title}</div>
-              <p className="text-sm text-fg-muted mt-2 leading-relaxed">{o.blurb}</p>
-              <div className="text-xs text-fg-muted mt-3 pt-3 border-t border-border-muted">
-                <span className="font-semibold text-fg-default">언제: </span>{o.whenUseful}
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <TaskKanbanLive
+      slug={slug}
+      tasks={liveTasks}
+      links={links}
+      events={enrichedEvents}
+      eventIdBySource={eventIdBySource}
+      commentsByEventId={commentsByEventId}
+      selectedTaskId={Number.isFinite(selectedTaskId) ? selectedTaskId : undefined}
+      addTaskBucket={addTaskBucket}
+      editTaskId={Number.isFinite(editTaskId) ? editTaskId : undefined}
+      editEventId={Number.isFinite(editEventId) ? editEventId : undefined}
+      editMode={editMode}
+    />
   );
 }

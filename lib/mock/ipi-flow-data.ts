@@ -2,9 +2,10 @@
 // progress/ys/*.md (2026-04-23 to 2026-04-25). Used to prototype "Flow" view
 // design candidates. In production this would be LLM-synthesized.
 
-export type FlowEventTone = 'milestone' | 'pivot' | 'result' | 'incident' | 'design';
+export type FlowEventTone = 'milestone' | 'pivot' | 'result' | 'incident' | 'design' | 'deprecated';
 
 export type FlowEvent = {
+  id?: number;             // FlowEvent.id from DB (undefined for mock-only events)
   date: string;            // 'YYYY-MM-DD HH:mm KST'
   source: string;          // progress filename
   title: string;

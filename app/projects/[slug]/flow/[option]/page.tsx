@@ -21,7 +21,8 @@ import {
   TaskGroupSection,
   TagFilterSection,
 } from '@/components/flow/sections';
-import { TaskKanbanLive, buildLiveTasks, type EventLink } from '@/components/flow/TaskKanbanLive';
+import { TaskKanbanLive } from '@/components/flow/TaskKanbanLive';
+import { buildLiveTasks, type EventLink, type EventComment } from '@/components/flow/task-kanban-helpers';
 import type { TaskBucket } from '@/lib/mock/ipi-flow-data';
 
 type OptionKey = 'a' | 'd' | 'e' | 'g' | 'h' | 'i' | 'j';
@@ -89,24 +90,34 @@ export default async function FlowOptionPage({
     case 'h': body = <TaskGroupSection tasks={TASKS} events={events} />;                            break;
     case 'i': body = <TagFilterSection slug={slug} tags={TAGS} events={events} selectedTagId={sp.tag} />; break;
     case 'j': {
-      const [rawTasks, rawLinks, rawEvents] = await Promise.all([
+      const [rawTasks, rawLinks, rawEvents, rawComments] = await Promise.all([
         prisma.todoItem.findMany({
           where: { projectSlug: slug },
           orderBy: [{ bucket: 'asc' }, { position: 'asc' }],
-          select: { id: true, bucket: true, text: true, goal: true, subtasks: true, status: true },
+          select: { id: true, bucket: true, text: true, goal: true, group: true, subtasks: true, status: true },
         }),
         prisma.flowEventTaskLink.findMany({
           where: { projectSlug: slug },
-          select: { id: true, eventSource: true, todoId: true, source: true },
+          select: { id: true, flowEventId: true, todoId: true, source: true },
         }),
         prisma.flowEvent.findMany({
           where: { projectSlug: slug },
-          orderBy: [{ position: 'asc' }, { date: 'asc' }],
+          orderBy: [{ date: 'desc' }, { position: 'desc' }],
+        }),
+        prisma.flowEventComment.findMany({
+          where: { flowEvent: { projectSlug: slug } },
+          orderBy: { createdAt: 'asc' },
         }),
       ]);
+      const commentsByEventId: Record<number, EventComment[]> = {};
+      for (const c of rawComments) {
+        if (!commentsByEventId[c.flowEventId]) commentsByEventId[c.flowEventId] = [];
+        commentsByEventId[c.flowEventId].push(c);
+      }
       const links: EventLink[] = rawLinks;
       // Build FlowEvent[] from DB rows (parse JSON fields). Enrich with sourceContent.
       const dbEvents: FlowEvent[] = rawEvents.map(r => ({
+        id: r.id,
         date: r.date,
         source: r.source,
         title: r.title,
@@ -117,7 +128,8 @@ export default async function FlowOptionPage({
         tags: r.tags ? JSON.parse(r.tags) : undefined,
       }));
       const enrichedEvents = await enrichWithSource(dbEvents);
-      const eventIdBySource = new Map<string, number>(rawEvents.map(r => [r.source, r.id]));
+      const eventIdBySource: Record<string, number> = {};
+      for (const r of rawEvents) eventIdBySource[r.source] = r.id;
       const liveTasks = buildLiveTasks(rawTasks, links, enrichedEvents);
       const selectedTaskId = sp.task ? Number(sp.task) : undefined;
       const addTaskBucket = (sp.addTask === 'short' || sp.addTask === 'mid' || sp.addTask === 'long')
@@ -132,6 +144,7 @@ export default async function FlowOptionPage({
           links={links}
           events={enrichedEvents}
           eventIdBySource={eventIdBySource}
+          commentsByEventId={commentsByEventId}
           selectedTaskId={Number.isFinite(selectedTaskId) ? selectedTaskId : undefined}
           addTaskBucket={addTaskBucket}
           editTaskId={Number.isFinite(editTaskId) ? editTaskId : undefined}

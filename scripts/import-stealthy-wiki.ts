@@ -57,24 +57,28 @@ async function main() {
     data: { localPath: '/home/dami/wj/Research/StealthyIPIAttack' },
   });
 
-  // Wipe existing wiki rows for this project (idempotent).
-  await prisma.wikiEntity.deleteMany({ where: { projectSlug: PROJECT_SLUG } });
-  await prisma.wikiType.deleteMany({ where: { projectSlug: PROJECT_SLUG } });
-
-  // Seed wiki types.
+  // Upsert wiki types (idempotent).
   for (const t of TYPE_DIRS) {
-    await prisma.wikiType.create({
-      data: {
+    await prisma.wikiType.upsert({
+      where: { projectSlug_key: { projectSlug: PROJECT_SLUG, key: t.key } },
+      create: {
         projectSlug: PROJECT_SLUG,
         key: t.key,
         label: t.label,
         position: t.position,
       },
+      update: { label: t.label, position: t.position },
     });
   }
 
-  // Walk each type directory.
-  let total = 0;
+  // Walk each type directory; upsert with content compare so lastSyncedAt
+  // only advances when the entity actually changed (or is new).
+  const now = new Date();
+  let created = 0;
+  let updated = 0;
+  let unchanged = 0;
+  const seenIds = new Set<string>();
+
   for (const t of TYPE_DIRS) {
     const dir = path.join(WIKI_ROOT, t.dir);
     let files: string[] = [];
@@ -91,26 +95,70 @@ async function main() {
       const name = fm.name ?? id;
       const status = fm.status ?? 'active';
       const summary = extractSummary(body);
+      const trimmedBody = body.trim();
       const sourceRel = path.relative('/home/dami/wj/Research/StealthyIPIAttack', full);
-      const lastUpdated = fm.last_updated ? new Date(fm.last_updated.replace(' ', 'T')) : new Date();
-      await prisma.wikiEntity.create({
-        data: {
-          projectSlug: PROJECT_SLUG,
-          id,
-          type: t.key,
-          name,
-          status,
-          summaryMarkdown: summary,
-          bodyMarkdown: body.trim(),
-          sourceFiles: JSON.stringify([sourceRel]),
-          lastSyncedAt: isNaN(lastUpdated.getTime()) ? new Date() : lastUpdated,
-        },
+      seenIds.add(id);
+
+      const existing = await prisma.wikiEntity.findUnique({
+        where: { projectSlug_id: { projectSlug: PROJECT_SLUG, id } },
       });
-      total += 1;
+
+      if (!existing) {
+        await prisma.wikiEntity.create({
+          data: {
+            projectSlug: PROJECT_SLUG,
+            id,
+            type: t.key,
+            name,
+            status,
+            summaryMarkdown: summary,
+            bodyMarkdown: trimmedBody,
+            sourceFiles: JSON.stringify([sourceRel]),
+            lastSyncedAt: now,
+          },
+        });
+        created += 1;
+      } else if (
+        existing.bodyMarkdown === trimmedBody &&
+        existing.summaryMarkdown === summary &&
+        existing.status === status &&
+        existing.name === name &&
+        existing.type === t.key
+      ) {
+        // No content change — preserve lastSyncedAt.
+        unchanged += 1;
+      } else {
+        await prisma.wikiEntity.update({
+          where: { projectSlug_id: { projectSlug: PROJECT_SLUG, id } },
+          data: {
+            type: t.key,
+            name,
+            status,
+            summaryMarkdown: summary,
+            bodyMarkdown: trimmedBody,
+            sourceFiles: JSON.stringify([sourceRel]),
+            lastSyncedAt: now,
+          },
+        });
+        updated += 1;
+      }
     }
   }
 
-  console.log(`Imported ${total} wiki entities into project=${PROJECT_SLUG}`);
+  // Delete entities present in DB but no longer in git.
+  const orphans = await prisma.wikiEntity.findMany({
+    where: { projectSlug: PROJECT_SLUG, id: { notIn: [...seenIds] } },
+    select: { id: true },
+  });
+  if (orphans.length > 0) {
+    await prisma.wikiEntity.deleteMany({
+      where: { projectSlug: PROJECT_SLUG, id: { in: orphans.map(o => o.id) } },
+    });
+  }
+
+  console.log(
+    `Wiki sync (project=${PROJECT_SLUG}): created=${created} updated=${updated} unchanged=${unchanged} deleted=${orphans.length}`,
+  );
   await prisma.$disconnect();
 }
 
