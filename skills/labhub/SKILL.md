@@ -16,7 +16,7 @@ dashboard with a JWT-authenticated REST API.
 
 ```
 LABHUB_URL    = https://labhub.damilab.cc   (or $LABHUB_URL env override)
-CLIENT_ID     = REPLACE_WITH_GITHUB_CLIENT_ID
+CLIENT_ID     = Ov23li51RQ8mtKGwzr5z
 TOKEN_FILE    = $HOME/.config/labhub/token.json
 SCRIPTS_DIR   = (this skill folder)/scripts
 ```

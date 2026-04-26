@@ -18,17 +18,21 @@ Type `/labhub login` in any Claude Code session to start.
 
 If you're the lab admin distributing this skill for the first time:
 
-1. Create a GitHub OAuth App at
-   https://github.com/settings/applications/new:
-   - **Application name:** `LabHub CLI`
-   - **Homepage URL:** `https://labhub.damilab.cc`
-   - **Authorization callback URL:** `https://labhub.damilab.cc`
-     (unused for Device Flow but GitHub requires the field)
-   - **Enable Device Flow:** ✅
+1. Use a GitHub OAuth App with **Device Flow enabled**. You can either:
+   - **Reuse the existing LabHub web-auth OAuth App** (recommended for a
+     single-deployment lab): open
+     https://github.com/settings/developers, click your app, scroll to
+     "Device Flow", check **Enable Device Flow**, click Update.
+     The same Client ID will work for both web sign-in and the skill.
+   - **Or create a separate "LabHub CLI" app** at
+     https://github.com/settings/applications/new (set Homepage URL to
+     `https://labhub.damilab.cc`, callback URL to anything, and check
+     **Enable Device Flow**).
 2. Copy the **Client ID** from the OAuth App page (the `Ov23li…`
    string — it's public, safe to commit).
-3. Open `skills/labhub/SKILL.md` and replace
-   `REPLACE_WITH_GITHUB_CLIENT_ID` with that value.
+3. Open `skills/labhub/SKILL.md` and replace the value next to
+   `CLIENT_ID` with your Client ID. (For damilab's deployment this is
+   already done.)
 4. Commit and push.
 5. Lab members pull and re-`cp -r` to update.
 
