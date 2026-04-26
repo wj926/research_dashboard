@@ -7,6 +7,7 @@ const TEST_PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: require.resolve('./tests/global-setup.ts'),
   timeout: 60_000,
   fullyParallel: true,
   // Turbopack's first-hit compile time means 32+ parallel workers routinely
