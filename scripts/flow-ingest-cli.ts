@@ -15,8 +15,74 @@
 import 'dotenv/config';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '../lib/generated/prisma/client';
+
+// Convention for auto-deriving localPath from githubRepo. Hardcoded for now;
+// in production this would come from project config or env.
+const RESEARCH_ROOT = '/home/dami/wj/Research';
+
+function deriveLocalPath(githubRepo: string): string {
+  // githubRepo format: "owner/repo" → use the repo part as the directory name.
+  const repo = githubRepo.includes('/') ? githubRepo.split('/').pop()! : githubRepo;
+  return path.join(RESEARCH_ROOT, repo);
+}
+
+async function pathExists(p: string): Promise<boolean> {
+  try { await fs.access(p); return true; } catch { return false; }
+}
+
+async function isGitCheckout(p: string): Promise<boolean> {
+  try {
+    const s = await fs.stat(path.join(p, '.git'));
+    return s.isDirectory();
+  } catch { return false; }
+}
+
+/**
+ * Resolve a project's local git path. Priority:
+ *   1. Project.localPath if set + valid git checkout.
+ *   2. Derived from githubRepo. If exists + git checkout → use.
+ *      If doesn't exist → auto-clone from GitHub.
+ *
+ * Logs progress to stderr. Returns absolute path.
+ */
+async function resolveLocalPath(project: { githubRepo: string | null; localPath: string | null }): Promise<string> {
+  // Case 1: explicit localPath
+  if (project.localPath) {
+    if (await isGitCheckout(project.localPath)) return project.localPath;
+    throw new Error(`Project.localPath "${project.localPath}" exists but is not a git checkout.`);
+  }
+
+  // Case 2: derive from githubRepo
+  if (!project.githubRepo) {
+    throw new Error('project has neither localPath nor githubRepo. Set githubRepo (e.g. "owner/repo") to enable auto-derive.');
+  }
+  const derived = deriveLocalPath(project.githubRepo);
+
+  if (await pathExists(derived)) {
+    if (await isGitCheckout(derived)) return derived;
+    throw new Error(
+      `derived path "${derived}" exists but is not a git checkout. ` +
+      `Move/remove it, or set Project.localPath to a different location.`,
+    );
+  }
+
+  // Auto-clone
+  process.stderr.write(`📥 cloning https://github.com/${project.githubRepo}.git → ${derived}\n`);
+  // Make parent dir if needed
+  await fs.mkdir(path.dirname(derived), { recursive: true });
+  const r = spawnSync('git', ['clone', '--depth', '1', `https://github.com/${project.githubRepo}.git`, derived], {
+    stdio: ['ignore', 'inherit', 'inherit'],
+  });
+  if (r.status !== 0) {
+    throw new Error(`git clone failed (exit ${r.status}). For private repos, set up auth or set localPath manually.`);
+  }
+  // Unshallow so subsequent pulls work cleanly
+  spawnSync('git', ['-C', derived, 'fetch', '--unshallow'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  return derived;
+}
 
 type ApplyPayload = {
   projectSlug: string;
@@ -72,12 +138,14 @@ async function cmdGetProject(slug: string) {
   const prisma = newPrisma();
   const project = await prisma.project.findUnique({ where: { slug } });
   if (!project) throw new Error(`project not found: ${slug}`);
-  if (!project.localPath) {
+  if (!project.githubRepo) {
     throw new Error(
-      `project "${slug}" has no localPath set. Set Project.localPath to the local git checkout path before ingest. ` +
-      `(githubRepo is optional metadata for display; localPath is the operational source.)`,
+      `project "${slug}" has no githubRepo set (e.g. "owner/repo"). ` +
+      `Set Project.githubRepo before ingest — it's the canonical "what this project follows".`,
     );
   }
+  // Resolve effective local path (auto-clone from githubRepo if needed)
+  const effectiveLocalPath = await resolveLocalPath(project);
 
   const [tasks, wikiTypes, ingested] = await Promise.all([
     prisma.todoItem.findMany({
@@ -101,8 +169,9 @@ async function cmdGetProject(slug: string) {
     project: {
       slug: project.slug,
       name: project.name,
-      localPath: project.localPath,
       githubRepo: project.githubRepo,
+      localPath: effectiveLocalPath,
+      localPathSource: project.localPath ? 'explicit' : 'derived',
     },
     tasks: tasks.map(t => ({
       id: t.id,
@@ -125,11 +194,12 @@ async function cmdListNewProgress(slug: string, force: boolean) {
   const prisma = newPrisma();
   const project = await prisma.project.findUnique({ where: { slug } });
   if (!project) throw new Error(`project not found: ${slug}`);
-  if (!project.localPath) {
-    throw new Error(`project "${slug}" has no localPath set; ingest needs it`);
+  if (!project.githubRepo) {
+    throw new Error(`project "${slug}" has no githubRepo set; ingest needs it`);
   }
+  const effectiveLocalPath = await resolveLocalPath(project);
 
-  const progressRoot = path.join(project.localPath, 'progress');
+  const progressRoot = path.join(effectiveLocalPath, 'progress');
   const ingested = new Set<string>(
     force ? [] : (await prisma.flowEvent.findMany({
       where: { projectSlug: slug },
